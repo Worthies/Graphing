@@ -1,0 +1,128 @@
+/* SVG Edit VS Code Theme Override */
+
+/* Canvas container */
+#graphing-content {
+  background-color: var(--vscode-editor-background, #1e1e1e);
+  color: var(--vscode-editor-foreground, #cccccc);
+}
+
+/* SVG Canvas area */
+.svgcanvas-container {
+  background-color: var(--vscode-editor-background, #1e1e1e);
+}
+
+/* Selection handles */
+.svg_select_handler {
+  fill: var(--vscode-activityBarBadge-background, #007acc);
+  stroke: var(--vscode-activityBarBadge-foreground, #ffffff);
+  stroke-width: 1;
+}
+
+/* Selection bounding box */
+.svg_select_boundingRect {
+  stroke: var(--vscode-activityBarBadge-foreground, #ffffff);
+  stroke-dasharray: 4px;
+  fill: none;
+}
+
+/* Selection rotation handle */
+.svg_select_rotate {
+  fill: var(--vscode-activityBarBadge-background, #007acc);
+  stroke: var(--vscode-activityBarBadge-foreground, #ffffff);
+}
+
+/* Grid lines (if enabled) */
+.canvas_grid line {
+  stroke: var(--vscode-editorWidget-border, #444444);
+}
+
+/* Path edit nodes */
+.pathpoint {
+  fill: var(--vscode-activityBarBadge-background, #007acc);
+  stroke: var(--vscode-activityBarBadge-foreground, #ffffff);
+}
+
+/* Control points for bezier curves */
+.ctrlpoint {
+  fill: var(--vscode-charts-green, #4ec9b0);
+  stroke: var(--vscode-activityBarBadge-foreground, #ffffff);
+}
+
+/* Canvas background pattern (checkerboard for transparency) */
+#svgcanvas {
+  background-color: transparent;
+  background-image:
+    linear-gradient(45deg, var(--vscode-sideBar-background, #252526) 25%, transparent 25%, transparent 75%, var(--vscode-sideBar-background, #252526) 75%),
+    linear-gradient(45deg, var(--vscode-sideBar-background, #252526) 25%, transparent 25%, transparent 75%, var(--vscode-sideBar-background, #252526) 75%);
+  background-size: 8em 8em;
+  background-position: 0 0, 4em 4em;
+}
+
+/* Layer panel styling */
+.layer_panel {
+  background-color: var(--vscode-sideBar-background, #252526);
+  color: var(--vscode-sideBar-foreground, #cccccc);
+  border-color: var(--vscode-sideBar-border, #3c3c3c);
+}
+
+/* Toolbar buttons */
+.graphing-toolbutton {
+  color: var(--vscode-toolbar-foreground, #cccccc);
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.1));
+  border-color: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.1));
+}
+
+.graphing-toolbutton:hover {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.2));
+}
+
+.graphing-toolbutton.active {
+  background-color: var(--vscode-activityBarBadge-background, #007acc);
+  color: var(--vscode-activityBarBadge-foreground, #ffffff);
+}
+
+/* Color picker */
+.color_picker {
+  background-color: var(--vscode-dropdown-background, #3c3c3c);
+  border-color: var(--vscode-dropdown-border, #3c3c3c);
+  color: var(--vscode-dropdown-foreground, #cccccc);
+}
+
+/* Input fields */
+.graphing-input {
+  background-color: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #cccccc);
+  border-color: var(--vscode-input-border, #3c3c3c);
+}
+
+/* Select dropdowns */
+.graphing-select {
+  background-color: var(--vscode-dropdown-background, #3c3c3c);
+  color: var(--vscode-dropdown-foreground, #cccccc);
+  border-color: var(--vscode-dropdown-border, #3c3c3c);
+}
+
+/* Dialogs/modals */
+.graphing-dialog {
+  background-color: var(--vscode-editorWidget-background, #252526);
+  color: var(--vscode-editorWidget-foreground, #cccccc);
+  border-color: var(--vscode-editorWidget-border, #444444);
+}
+
+/* Scrollbar styling */
+#graphing-content::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+#graphing-content::-webkit-scrollbar-track {
+  background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4));
+}
+
+#graphing-content::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.7));
+}
+
+#graphing-content::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7));
+}

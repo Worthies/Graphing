@@ -1,7 +1,13 @@
 import memoize from "fast-memoize";
-import { elementOpen, elementClose, elementVoid } from "incremental-dom";
 import { $Values, Omit } from "utility-types";
-import { get } from "http";
+import { Point } from "./svgParser";
+
+// Lazy import: incremental-dom is only needed in the renderer (webview),
+// not in the extension host. Using require() at call time avoids a
+// runtime crash when Node.js tries to load the module in the host process.
+function requireIncrementalDom() {
+    return require("incremental-dom");
+}
 
 /**
  * Mapping in object. `{a: 1, b: 2, c: 3} ->(+1) {a: 2, b: 3, c: 4}`
@@ -125,6 +131,7 @@ function join2(sep: (i: number) => string, strs: string[]) {
  * ``el`li foo="list-${variable}"` `` is incorrect. Use ``el`li foo=${`list-${variable}`}` ``
  */
 export function el(template: TemplateStringsArray, ...args: any[]): Element {
+    const { elementOpen, elementClose, elementVoid } = requireIncrementalDom();
     if (template[0].charAt(0) === "/") {
         return elementClose(template[0].slice(1).trim());
     } else {

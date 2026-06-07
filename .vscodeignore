@@ -1,8 +1,103 @@
+# Source files
 **/*.ts
 **/tsconfig.json
 **/tslint.json
 **/*.ttf
 **/*.sjsp.js
+
+# Test files
 out/test/**
+test/**
+scripts/**
+.vscode/**
+
+# Images (keep only what's needed for the extension)
+images/capture.png
+images/svgeditor.png
+images/svgeditor.svg
+images/svgeditor_menuicon_dark.svg
+images/svgeditor_menuicon_light.svg
 tmp
+
+# Logs and temp files
 *.log
+*.map
+
+# Git
+.git/**
+.github/**
+
+# SVG Edit source, test, demo, and dev files
+node_modules/@svgedit/svgcanvas/core/**
+node_modules/@svgedit/svgcanvas/src/**
+node_modules/@svgedit/svgcanvas/test/**
+node_modules/@svgedit/svgcanvas/demos/**
+node_modules/@svgedit/svgcanvas/dist/*.map
+node_modules/@svgedit/svgcanvas/CHANGES.md
+node_modules/@svgedit/svgcanvas/publish.md
+node_modules/@svgedit/svgcanvas/vite.config.mjs
+node_modules/@svgedit/svgcanvas/.github/**
+node_modules/@svgedit/svgcanvas/.travis.yml
+node_modules/@svgedit/svgcanvas/*.md
+node_modules/@svgedit/svgcanvas/.npmignore
+node_modules/@svgedit/svgcanvas/.gitignore
+node_modules/@svgedit/svgcanvas/.gitattributes
+node_modules/@svgedit/svgcanvas/.editorconfig
+node_modules/@svgedit/svgcanvas/.eslintrc*
+node_modules/@svgedit/svgcanvas/.prettierrc*
+node_modules/@svgedit/svgcanvas/LICENSE*
+node_modules/@svgedit/svgcanvas/LICENCE*
+
+# Dev dependencies
+node_modules/@types/**
+node_modules/mocha/**
+node_modules/tslint/**
+node_modules/typescript/**
+node_modules/utility-types/**
+node_modules/vite/**
+node_modules/.vite/**
+node_modules/vscode/**
+
+# Build config files
+vite.config.webview.ts
+yarn.lock
+bun.lock
+package-lock.json
+changelog.md
+jest.config.*
+
+# Exclude unnecessary files from ALL node_modules
+node_modules/**/README.md
+node_modules/**/CHANGELOG.md
+node_modules/**/HISTORY.md
+node_modules/**/LICENSE*
+node_modules/**/LICENCE*
+node_modules/**/CONTRIBUTING.md
+node_modules/**/.editorconfig
+node_modules/**/.eslintrc*
+node_modules/**/.prettierrc*
+node_modules/**/.jshintrc
+node_modules/**/Makefile
+node_modules/**/Gruntfile*
+node_modules/**/Gulpfile*
+node_modules/**/.npmignore
+node_modules/**/.gitignore
+node_modules/**/.gitattributes
+
+# Exclude test, development, and documentation from node_modules
+node_modules/**/test/**
+node_modules/**/tests/**
+node_modules/**/__tests__/**
+node_modules/**/spec/**
+node_modules/**/docs/**
+node_modules/**/doc/**
+node_modules/**/*.spec.*
+node_modules/**/*.test.*
+node_modules/**/coverage/**
+node_modules/**/.nyc_output/**
+node_modules/**/.travis.yml
+node_modules/**/.github/**
+node_modules/**/.vscode/**
+node_modules/**/.idea/**
+node_modules/**/.DS_Store
+node_modules/**/Thumbs.db

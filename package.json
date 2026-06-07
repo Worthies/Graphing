@@ -1,10 +1,10 @@
 {
-  "name": "svgeditor",
-  "displayName": "SVG Editor",
+  "name": "graphing",
+  "displayName": "Graphing",
   "description": "Visual and literal SVG editor for VSCode.",
   "version": "2.9.0",
-  "publisher": "henoc",
-  "icon": "images/svgeditor.png",
+  "publisher": "cloorc",
+  "icon": "images/graphing.png",
   "galleryBanner": {
     "color": "#0179cb",
     "theme": "light"
@@ -22,175 +22,198 @@
     "Other"
   ],
   "engines": {
-    "vscode": "^1.25.0"
+    "vscode": "^1.82.0"
   },
   "activationEvents": [
-    "onCommand:svgeditor.openSvgEditor",
-    "onCommand:svgeditor.newSvgEditor"
+    "onLanguage:svg",
+    "onCommand:graphing.openSvgEditor",
+    "onCommand:graphing.newSvgEditor",
+    "onCommand:graphing.restartLspServer"
   ],
-  "main": "./out/src/node/extension",
+  "main": "./out/node/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "svgeditor.openSvgEditor",
-        "title": "Open SVG Editor",
+        "command": "graphing.openSvgEditor",
+        "title": "Graphing: Open SVG Editor",
         "icon": {
-          "light": "./images/svgeditor_menuicon_dark.svg",
-          "dark": "./images/svgeditor_menuicon_light.svg"
+          "light": "./images/graphing_editor_dark.svg",
+          "dark": "./images/graphing_editor_light.svg"
         }
       },
       {
-        "command": "svgeditor.newSvgEditor",
-        "title": "New File with SVG Editor"
+        "command": "graphing.newSvgEditor",
+        "title": "Graphing: New File with SVG Editor"
       },
       {
-        "command": "svgeditor.reopenRelatedTextEditor",
-        "title": "Reopen Text Editor Related to Current SVG Editor"
+        "command": "graphing.reopenRelatedTextEditor",
+        "title": "Graphing: Reopen Text Editor Related to Current SVG Editor"
+      },
+      {
+        "command": "graphing.restartLspServer",
+        "title": "Graphing: Restart SVG LSP Server"
       }
     ],
     "menus": {
       "editor/title": [
         {
-          "command": "svgeditor.openSvgEditor",
+          "command": "graphing.openSvgEditor",
           "when": "resourceLangId == svg",
-          "group": "navigation"
+          "group": "navigation",
+          "icon": {
+            "light": "./images/graphing_editor_dark.svg",
+            "dark": "./images/graphing_editor_light.svg"
+          }
         }
       ]
     },
     "keybindings": [
       {
-        "command": "svgeditor.delete",
+        "command": "graphing.delete",
         "key": "backspace",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.delete",
+        "command": "graphing.delete",
         "key": "delete",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.duplicate",
+        "command": "graphing.duplicate",
         "key": "ctrl+d",
         "mac": "cmd+d",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.zoomIn",
+        "command": "graphing.zoomIn",
         "key": "oem_plus",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.zoomOut",
+        "command": "graphing.zoomOut",
         "key": "oem_minus",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.group",
+        "command": "graphing.group",
         "key": "ctrl+g",
         "mac": "cmd+g",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.ungroup",
+        "command": "graphing.ungroup",
         "key": "ctrl+u",
         "mac": "cmd+u",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.font",
+        "command": "graphing.font",
         "key": "f8",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.bringForward",
+        "command": "graphing.bringForward",
         "key": "pageup",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.sendBackward",
+        "command": "graphing.sendBackward",
         "key": "pagedown",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.alignLeft",
+        "command": "graphing.alignLeft",
         "key": "ctrl+alt+numpad4",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.alignRight",
+        "command": "graphing.alignRight",
         "key": "ctrl+alt+numpad6",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.alignBottom",
+        "command": "graphing.alignBottom",
         "key": "ctrl+alt+numpad2",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.alignTop",
+        "command": "graphing.alignTop",
         "key": "ctrl+alt+numpad8",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.objectToPath",
+        "command": "graphing.objectToPath",
         "key": "shift+ctrl+c",
         "mac": "shift+cmd+c",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.rotateClockwise",
+        "command": "graphing.rotateClockwise",
         "key": "ctrl+]",
         "mac": "cmd+]",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.rotateCounterclockwise",
+        "command": "graphing.rotateCounterclockwise",
         "key": "ctrl+[",
         "mac": "cmd+[",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.rotateClockwiseByTheAngleStep",
+        "command": "graphing.rotateClockwiseByTheAngleStep",
         "key": "]",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.rotateCounterclockwiseByTheAngleStep",
+        "command": "graphing.rotateCounterclockwiseByTheAngleStep",
         "key": "[",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.centerVertical",
+        "command": "graphing.centerVertical",
         "key": "ctrl+alt+h",
         "mac": "cmd+alt+h",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
       },
       {
-        "command": "svgeditor.centerHorizontal",
+        "command": "graphing.centerHorizontal",
         "key": "ctrl+alt+t",
         "mac": "cmd+alt+t",
-        "when": "svgeditorWebviewFocus"
+        "when": "graphingWebviewFocus"
+      }
+    ],
+    "languages": [
+      {
+        "id": "svg",
+        "aliases": [
+          "SVG",
+          "svg"
+        ],
+        "extensions": [
+          ".svg"
+        ],
+        "configuration": "./resources/language-configuration.json"
       }
     ],
     "configuration": {
-      "title": "SVG Editor",
+      "title": "Graphing",
       "properties": {
-        "svgeditor.filenameExtension": {
+        "graphing.filenameExtension": {
           "type": "string",
           "default": "svg",
           "description": "Initial filename extension of new untitled file."
         },
-        "svgeditor.width": {
+        "graphing.width": {
           "type": "string",
           "default": "400px",
           "description": "Initial width of new untitled file."
         },
-        "svgeditor.height": {
+        "graphing.height": {
           "type": "string",
           "default": "400px",
           "description": "Initial height of new untitled file."
         },
-        "svgeditor.defaultUnit": {
+        "graphing.defaultUnit": {
           "type": [
             "string",
             "null"
@@ -210,35 +233,35 @@
           "description": "Specifies the unit when creating some shapes.",
           "scope": "resource"
         },
-        "svgeditor.decimalPlaces": {
+        "graphing.decimalPlaces": {
           "type": "number",
           "default": 1,
           "description": "The number of decimal places.",
           "scope": "resource"
         },
-        "svgeditor.collectTransformMatrix": {
+        "graphing.collectTransformMatrix": {
           "type": "boolean",
           "default": true,
           "description": "Collect two or more transform functions into a matrix.",
           "scope": "resource"
         },
-        "svgeditor.additionalResourcePaths": {
+        "graphing.additionalResourcePaths": {
           "type": "array",
           "items": {
             "type": "string",
             "description": "Resource directory path"
           },
           "default": [],
-          "description": "Additional resource directory paths SVG Editor can access.",
+          "description": "Additional resource directory paths Graphing can access.",
           "scope": "resource"
         },
-        "svgeditor.useStyleAttribute": {
+        "graphing.useStyleAttribute": {
           "type": "boolean",
           "default": false,
           "description": "Use style attribute instead of presentation attriubte when there are no previous specifications.",
           "scope": "resource"
         },
-        "svgeditor.indentStyle": {
+        "graphing.indentStyle": {
           "type": "string",
           "enum": [
             "tab",
@@ -248,7 +271,7 @@
           "description": "Indent style for auto-formatting.",
           "scope": "resource"
         },
-        "svgeditor.indentSize": {
+        "graphing.indentSize": {
           "type": "number",
           "default": 4,
           "description": "Indent size of spaces for auto-formatting.",
@@ -258,39 +281,38 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "yarn run compile",
-    "compile": "tsc -p ./ && yarn run browserify",
-    "browserify": "browserify out/src/renderer/main.js -o resources/bundle.js && browserify out/test/renderer/main.test.js -o out/test/renderer/bundle.test.js",
-    "postinstall": "node ./node_modules/vscode/bin/install"
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./ && npm run vite:webview",
+    "vite:webview": "vite build --config vite.config.webview.ts"
   },
   "devDependencies": {
     "@types/chai": "^4.1.5",
     "@types/diff": "^3.5.1",
     "@types/hammerjs": "^2.0.35",
-    "@types/incremental-dom": "^0.5.0",
     "@types/is-absolute-url": "^2.1.0",
     "@types/jsdom": "^11.0.6",
     "@types/mocha": "^5.2.5",
-    "@types/node": "^10.9.1",
+    "@types/node": "18.11.18",
     "@types/sax": "^1.0.1",
     "@types/tinycolor2": "^1.4.0",
     "@types/url-parse": "^1.4.1",
     "@types/uuid": "^3.4.3",
-    "browserify": "^16.2.2",
+    "@types/vscode": "1.53.0",
     "mocha": "^5.2.0",
     "tslint": "^5.9.1",
-    "typescript": "^3.1.6",
+    "typescript": "~3.9.10",
     "utility-types": "^2.1.0",
+    "vite": "^5.4.0",
     "vscode": "^1.1.21"
   },
   "dependencies": {
+    "@svgedit/svgcanvas": "^7.4.1",
     "diff": "^3.5.0",
     "fast-deep-equal": "^2.0.1",
     "fast-json-stable-stringify": "^2.0.0",
     "fast-memoize": "^2.5.1",
     "font-measure": "^1.2.2",
     "hammerjs": "^2.0.8",
-    "incremental-dom": "^0.5.1",
     "is-absolute-url": "^2.1.0",
     "jsondiffpatch": "^0.3.11",
     "sax": "1.2.4",
@@ -300,6 +322,11 @@
     "to-space-case": "^1.0.0",
     "transformation-matrix": "^1.12.0",
     "url-parse": "^1.4.3",
-    "uuid": "^3.3.2"
+    "uuid": "^3.3.2",
+    "concat-map": "^0.0.1",
+    "semver": "^7.3.7",
+    "vscode-languageclient": "9.0.1",
+    "vscode-languageserver": "9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
   }
 }

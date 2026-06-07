@@ -1,6 +1,10 @@
 import { el } from "./utils";
-import { text } from "incremental-dom";
 const space = require("to-space-case");
+
+// Lazy import: only loaded in renderer context (webview)
+function requireIncrementalDom() {
+    return require("incremental-dom");
+}
 
 export interface Component {
     render(): void;
@@ -14,6 +18,7 @@ export class ButtonComponent implements Component {
     constructor(public name: string, public key: string, public onclick: () => void) {}
 
     render() {
+        const { text } = requireIncrementalDom();
         el`div :key=${this.key} *class="svgeditor-button" onclick=${this.onclick}`;
         text(this.name);
         el`/div`;

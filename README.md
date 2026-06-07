@@ -1,101 +1,82 @@
-# SVG Editor
+# Graphing
 
-[![marketplace](https://badgen.net/vs-marketplace/v/henoc.svgeditor)](https://marketplace.visualstudio.com/items?itemName=henoc.svgeditor)
+[![marketplace](https://badgen.net/vs-marketplace/v/henoc.graphing)](https://marketplace.visualstudio.com/items?itemName=henoc.graphing)
 ![license](https://badgen.net/badge/license/MIT/green)
-[![donate/ofuse](https://badgen.net/badge/donate/ofuse/c95353)](https://ofuse.me/#users/7853)
 
 ![sample](images/capture.png)
 
-**ver 2.9**: Correct only the changed portions without auto formatting
+A powerful visual & literal SVG editor for VS Code, powered by SVG Edit.
 
-Now your VSCode can mutate to an interactive visual & literal SVG editor 😎
+Create and edit SVG files using the built-in code editor or the visual drawing tools. Supports shapes, paths, text, gradients, layers, grouping, alignment, and more.
 
-You can create shapes using the SVG's coder or directly creating shapes with the shaping tool.
+## Features
+
+- **Drawing tools**: Rectangle, Ellipse, Line, Polyline, Path, Text, Image
+- **Selection & transformation**: Select, move, resize, rotate elements
+- **Layer operations**: Bring forward, send backward
+- **Grouping**: Group and ungroup elements
+- **Alignment**: Align left, right, top, bottom; center vertically and horizontally
+- **Styling**: Fill, stroke, opacity, font controls via the style panel
+- **Zoom**: Zoom in/out with keyboard shortcuts
+- **Bidirectional sync**: Edits in the visual editor sync to the text editor with minimal diffs
+- **VS Code theming**: Adapts to your VS Code light/dark theme
 
 ## Commands
 
-|command|title|
+| Command | Title |
 |:---|:---|
-|svgeditor.openSvgEditor|Open SVG Editor|
-|svgeditor.newSvgEditor|New File with SVG Editor|
-|svgeditor.reopenRelatedTextEditor|Reopen Text Editor Related to Current SVG Editor|
+| graphing.openSvgEditor | Open SVG Editor |
+| graphing.newSvgEditor | New File with SVG Editor |
+| graphing.reopenRelatedTextEditor | Reopen Text Editor Related to Current SVG Editor |
 
 ## Configuration
 
-|name|description|default|
+| Name | Description | Default |
 |:---|:---|:---|
-|svgeditor.filenameExtension|Initial filename extension of new untitled file.|svg|
-|svgeditor.width|Initial width of new untitled file.|400px|
-|svgeditor.height|Initial height of new untitled file.|400px|
-|svgeditor.defaultUnit|Specifies the unit when creating some shapes.|null|
-|svgeditor.decimalPlaces|The number of decimal places.|1|
-|svgeditor.collectTransformMatrix|Collect two or more transform functions into a matrix.|true|
-|svgeditor.additionalResourcePaths|Additional resource directory paths SVG Editor can access.||
-|svgeditor.useStyleAttribute|Use style attribute instead of presentation attriubte when there are no previous specifications.|false|
-|svgeditor.indentStyle|Indent style for auto-formatting.|space|
-|svgeditor.indentSize|Indent size of spaces for auto-formatting.|4|
+| graphing.filenameExtension | Initial filename extension of new untitled file. | svg |
+| graphing.width | Initial width of new untitled file. | 400px |
+| graphing.height | Initial height of new untitled file. | 400px |
+| graphing.defaultUnit | Specifies the unit when creating some shapes. | null |
+| graphing.decimalPlaces | The number of decimal places. | 1 |
+| graphing.collectTransformMatrix | Collect two or more transform functions into a matrix. | true |
+| graphing.additionalResourcePaths | Additional resource directory paths Graphing can access. | |
+| graphing.useStyleAttribute | Use style attribute instead of presentation attribute. | false |
+| graphing.indentStyle | Indent style for auto-formatting. | space |
+| graphing.indentSize | Indent size of spaces for auto-formatting. | 4 |
 
 ## Keybindings
 
-|operation|key|
+| Operation | Key |
 |:---|:---|
-|delete|backspace / delete|
-|duplicate|ctrl+d|
-|zoom in|oem_plus|
-|zoom out|oem_minus|
-|group|ctrl+g|
-|ungroup|ctrl+u|
-|font|f8|
-|bring forward|pageup|
-|send backward|pagedown|
-|align left|ctrl+alt+numpad4|
-|align right|ctrl+alt+numpad6|
-|align bottom|ctrl+alt+numpad2|
-|align top|ctrl+alt+numpad8|
-|object to path|shift+ctrl+c|
-|rotate clockwise|ctrl+]|
-|rotate counterclockwise|ctrl+[|
-|rotate clockwise by the angle step|]|
-|rotate counterclockwise by the angle step|[|
-|center vertical|ctrl+alt+h|
-|center horizontal|ctrl+alt+t|
+| Delete | Backspace / Delete |
+| Duplicate | Ctrl+D |
+| Zoom In | + |
+| Zoom Out | - |
+| Group | Ctrl+G |
+| Ungroup | Ctrl+U |
+| Bring Forward | PageUp |
+| Send Backward | PageDown |
+| Align Left | Ctrl+Alt+Numpad4 |
+| Align Right | Ctrl+Alt+Numpad6 |
+| Align Bottom | Ctrl+Alt+Numpad2 |
+| Align Top | Ctrl+Alt+Numpad8 |
+| Object to Path | Shift+Ctrl+C |
+| Rotate Clockwise | Ctrl+] |
+| Rotate Counterclockwise | Ctrl+[ |
+| Rotate CW by Step | ] |
+| Rotate CCW by Step | [ |
+| Center Vertical | Ctrl+Alt+H |
+| Center Horizontal | Ctrl+Alt+T |
 
-## Current support tags and attributes
+## Supported SVG Elements
 
-- *: id, class, style
-- svg: xmlns, xmlns:xlink, version, viewBox, x, y, width, height
-- circle: cx, cy, r, 🎨
-- rect: x, y, width, height, rx, ry, 🎨
-- ellipse: cx, cy, rx, ry, 🎨
-- polyline/polygon: points, 🎨
-- path: d, 🎨
-- text: x, y, dx, dy, textLength, lengthAdjust, 🎨
-- g: 🎨
-- defs: 🎨
-- linearGradient: 🎨
-- radialGradient: 🎨
-- stop: offset, stop-color, 🎨
-- image: x, y, width, height, xlink:href, href, 🎨
-- use: x, y, width, height, xlink:href, href, 🎨
-- style
-- script
-
-🎨(presentation attributes): fill, fill-rule, stroke, stroke-width, stroke-linecap, stroke-linejoin, stroke-dasharray, stroke-dashoffset, transform, font-family, font-size, font-style, font-weight
+- `svg`, `g`, `defs`, `circle`, `rect`, `ellipse`, `line`, `polyline`, `polygon`, `path`, `text`, `image`, `use`, `linearGradient`, `radialGradient`, `stop`, `style`, `script`
 
 ## Notice
 
-### Image
+### Image References
 
-Localtion (xlink:)href refers to is restricted with your workspace, extension and `svgeditor.additionalResourcePaths` directories due to `vscode-resource` scheme settings.
-
-## Future plans
-
-- [x] Embedded CSS
-- [x] Gradient colors
-- [x] Images
-- [x] Correct only the changed portions without auto formatting
-- [ ] Filters
-- [ ] Animations
+Location `(xlink:)href` refers to is restricted with your workspace, extension and `graphing.additionalResourcePaths` directories due to `vscode-resource` scheme settings.
 
 ## License
 

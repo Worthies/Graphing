@@ -7,6 +7,7 @@ import { XmlNode, XmlElement, Interval, ElementPositionsOnText } from "./xmlPars
 import { toTransformStrWithoutCollect } from "./transformHelpers";
 import { FONT_SIZE_KEYWORDS } from "./constants";
 const { fromTransformAttribute } = require("transformation-matrix/build-commonjs/fromTransformAttribute");
+import { Matrix } from "transformation-matrix";
 
 interface Warning {
     type: "warning",

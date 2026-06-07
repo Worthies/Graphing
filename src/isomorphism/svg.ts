@@ -1,10 +1,14 @@
 import { iterate, escapeHtml } from "./utils";
 import { attrToStr, AttrValue, fixDecimalPlaces } from "./svgParser";
-import { elementOpenStart, elementOpenEnd, attr, text, elementClose } from "incremental-dom";
 import { Component } from "./component";
 import { XmlNodeNop } from "./xmlParser";
 import { SVG_NS, XLINK_NS, SKIP_TAGS_ON_RENDER } from "./constants";
 import { LinearOptions } from "./xmlSerializer";
+
+// Lazy import: only loaded in renderer context (webview)
+function requireIncrementalDom() {
+    return require("incremental-dom");
+}
 
 interface SvgTagOptions {
     numOfDecimalPlaces?: number;
@@ -109,6 +113,7 @@ export class SvgTag implements XmlComponent {
     }
 
     render = () => {
+        const { elementOpenStart, elementOpenEnd, attr, elementClose } = requireIncrementalDom();
         if (this.data.tag) {
             if (this.data.tag === "svg") {
                 this.data.attrs.xmlns = SVG_NS;
@@ -172,6 +177,7 @@ export function stringComponent(str: string, type: "text" | "comment" | "cdata" 
     
     return {
         render() {
+            const { text } = requireIncrementalDom();
             text(wrappedStr());
         },
         toXml(): XmlNodeNop {

@@ -1,6 +1,6 @@
 import { Transform, TransformDescriptor } from "./svgParser";
 import { assertNever, iterate } from "./utils";
-import { transform, rotateDEG, scale, skew, translate, identity } from "transformation-matrix";
+import { transform, rotateDEG, scale, skew, translate, identity, Matrix } from "transformation-matrix";
 
 /**
  * No collect matrices version.
