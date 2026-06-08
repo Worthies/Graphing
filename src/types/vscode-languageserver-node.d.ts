@@ -29,10 +29,16 @@ declare module "vscode-languageserver/node" {
         [key: string]: any;
     }
 
+    interface SemanticTokensRangeParams {
+        textDocument: { uri: string };
+        range: { start: { line: number; character: number }; end: { line: number; character: number } };
+    }
+
     interface Languages {
         semanticTokens: {
             refresh(): void;
             on(handler: (params: SemanticTokensParams) => SemanticTokens): Disposable;
+            onRange(handler: (params: SemanticTokensRangeParams) => SemanticTokens): Disposable;
         };
     }
 

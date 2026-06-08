@@ -618,6 +618,7 @@ var TOKEN_TYPE_PROPERTY = 9;
 var TOKEN_TYPE_STRING = 18;
 var TOKEN_TYPE_NUMBER = 19;
 var TOKEN_TYPE_COMMENT = 17;
+var TOKEN_TYPE_DECORATOR = 22;
 
 // SVG element names (treated as types/namespaces)
 var svgElementNames = [
@@ -730,6 +731,107 @@ connection.languages.semanticTokens.on(function (params: SemanticTokensParams): 
         return { data: data };
     } catch (e) {
         connection.console.error("Semantic tokens error: " + (e instanceof Error ? e.message : String(e)));
+        return { data: [] };
+    }
+});
+
+// Range semantic tokens handler - returns tokens for a specific range
+connection.languages.semanticTokens.onRange(function (params: any): SemanticTokens {
+    try {
+        var doc = documents.get(params.textDocument.uri);
+        if (!doc) return { data: [] };
+
+        var text = doc.getText();
+        var data: number[] = [];
+
+        var lineOffsets: number[] = [0];
+        for (var i = 0; i < text.length; i++) {
+            if (text.charAt(i) === "\n") {
+                lineOffsets.push(i + 1);
+            }
+        }
+
+        var prevLine = 0;
+        var prevChar = 0;
+
+        function pushToken(line: number, char: number, length: number, tokenType: number, tokenModifiers: number): void {
+            // Filter by range
+            if (line < params.range.start.line || line > params.range.end.line) return;
+            if (line === params.range.start.line && char < params.range.start.character) return;
+            if (line === params.range.end.line && char > params.range.end.character) return;
+
+            var deltaLine = line - prevLine;
+            var deltaChar = (deltaLine === 0) ? char - prevChar : char;
+            data.push(deltaLine, deltaChar, length, tokenType, tokenModifiers);
+            prevLine = line;
+            prevChar = char;
+        }
+
+        function getLineCol(pos: number): { line: number; col: number } {
+            var lo = 0, hi = lineOffsets.length - 1;
+            while (lo < hi) {
+                var mid = (lo + hi + 1) >> 1;
+                if (lineOffsets[mid] <= pos) lo = mid;
+                else hi = mid - 1;
+            }
+            return { line: lo, col: pos - lineOffsets[lo] };
+        }
+
+        var tagRegex = /<\/?([a-zA-Z][\w:-]*)((?:\s+[^>]*?)?)(\s*\/?>)/g;
+        var match: RegExpExecArray | null;
+
+        while ((match = tagRegex.exec(text)) !== null) {
+            var fullTag = match[0];
+            var tagName = match[1];
+            var attrs = match[2];
+            var tagStart = match.index;
+            var isClosing = fullTag.charAt(1) === "/";
+
+            var nameOffset = isClosing ? 2 : 1;
+            var namePos = tagStart + nameOffset;
+            var nameLoc = getLineCol(namePos);
+            var tokenType = TOKEN_TYPE_TYPE;
+            if (tagName === "svg" || tagName === "g" || tagName === "defs") {
+                tokenType = TOKEN_TYPE_NAMESPACE;
+            }
+            pushToken(nameLoc.line, nameLoc.col, tagName.length, tokenType, 0);
+
+            if (attrs) {
+                var attrRegex = /([a-zA-Z][\w:-]*)\s*=\s*"([^"]*)"/g;
+                var attrMatch: RegExpExecArray | null;
+                var attrsAbsStart = tagStart + 1 + tagName.length;
+
+                while ((attrMatch = attrRegex.exec(attrs)) !== null) {
+                    var attrName = attrMatch[1];
+                    var attrValue = attrMatch[2];
+                    var attrStart = attrsAbsStart + attrMatch.index;
+                    var valueStart = attrStart + attrName.length + attrMatch[0].indexOf(attrValue) - attrMatch.index;
+
+                    var attrNameLoc = getLineCol(attrStart);
+                    pushToken(attrNameLoc.line, attrNameLoc.col, attrName.length, TOKEN_TYPE_PROPERTY, 0);
+
+                    var valueLoc = getLineCol(valueStart);
+                    var valueTokenType = TOKEN_TYPE_STRING;
+                    if (/^-?\d+(\.\d+)?(%|px|em|pt|cm|mm|in|pc|ex)?$/i.test(attrValue)) {
+                        valueTokenType = TOKEN_TYPE_NUMBER;
+                    } else if (/^(#[0-9a-fA-F]{3,8}|rgb\(|rgba\(|hsl\(|hsla\()/.test(attrValue)) {
+                        valueTokenType = TOKEN_TYPE_DECORATOR;
+                    }
+                    pushToken(valueLoc.line, valueLoc.col, attrValue.length, valueTokenType, 0);
+                }
+            }
+        }
+
+        var commentRegex = /<!--([\s\S]*?)-->/g;
+        var commentMatch: RegExpExecArray | null;
+        while ((commentMatch = commentRegex.exec(text)) !== null) {
+            var commentLoc = getLineCol(commentMatch.index);
+            pushToken(commentLoc.line, commentLoc.col, commentMatch[0].length, TOKEN_TYPE_COMMENT, 0);
+        }
+
+        return { data: data };
+    } catch (e) {
+        connection.console.error("Semantic tokens range error: " + (e instanceof Error ? e.message : String(e)));
         return { data: [] };
     }
 });

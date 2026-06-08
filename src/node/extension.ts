@@ -185,6 +185,14 @@ export function activate(context: vscode.ExtensionContext) {
                             outputChannel.appendLine(message.data.join(" "));
                         }
                         return;
+                    case "selectionChanged":
+                        // Handle selection change from canvas
+                        if (message.data && message.data.elementId) {
+                            // Could be used to highlight corresponding element in text editor
+                            // For now, just log it
+                            outputChannel.appendLine(`Selection changed: ${message.data.tagName}#${message.data.elementId}`);
+                        }
+                        return;
                 }
             } catch (e) {
                 showError(e);
@@ -224,6 +232,29 @@ export function activate(context: vscode.ExtensionContext) {
             panelSet.panel.webview.postMessage({
                 command: "modified",
                 data: panelSet.text
+            });
+        }
+    }, null, context.subscriptions);
+
+    // Track cursor position changes to select corresponding element on canvas
+    vscode.window.onDidChangeTextEditorSelection((e: vscode.TextEditorSelectionChangeEvent) => {
+        if (!panelSet || panelSet.editor !== e.textEditor) return;
+
+        const position = e.selections[0].active;
+        const text = panelSet.text;
+
+        // Find element at cursor position using simple regex parsing
+        // Look backwards from cursor to find the nearest opening tag
+        const offset = panelSet.editor.document.offsetAt(position);
+        const textBefore = text.substring(0, offset);
+
+        // Find the last opening tag before cursor
+        const tagMatch = textBefore.match(/<([a-zA-Z][\w:-]*)\s[^>]*?id="([^"]*)"[^>]*$/);
+        if (tagMatch) {
+            const elementId = tagMatch[2];
+            panelSet.panel.webview.postMessage({
+                command: "selectElement",
+                data: { elementId: elementId }
             });
         }
     }, null, context.subscriptions);

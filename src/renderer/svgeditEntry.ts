@@ -8,7 +8,7 @@ import { SvgCanvasExtended, createSvgCanvasExtended } from './svgcanvas-types';
 import { sanitizeSvgForEditor, prepareSvgForCanvas } from './svgSanitizer';
 import { computeSvgDiff, applyOperations } from './svgDiffToOperations';
 import { SvgeditToolbar, DrawMode, Operation } from './svgeditToolbar';
-import { SvgeditStylePanel, StyleState } from './svgeditStylePanel';
+import { SvgeditStylePanel, StyleState, ElementAttributes } from './svgeditStylePanel';
 import { registerExtensions } from './svgeditExtensions';
 import { logger, withSyncErrorHandling } from './logger';
 import { debounce, requestIdleCallback } from './performance';
@@ -80,6 +80,51 @@ try {
   logger.warn('Some extensions failed to register', error);
 }
 
+// Override getMouseTarget to select the actual shape element (not the group)
+// SVG shape elements that can be directly selected
+const SHAPE_ELEMENTS = ['rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'path', 'text', 'image', 'use', 'g'];
+
+(canvas as any).getMouseTarget = function(evt: MouseEvent): SVGElement | null {
+  if (!evt) return null;
+
+  let mouseTarget = evt.target as SVGElement;
+
+  // Handle use elements
+  if ((mouseTarget as any).correspondingUseElement) {
+    mouseTarget = (mouseTarget as any).correspondingUseElement;
+  }
+
+  // Get the canvas boundaries
+  const svgRoot = canvas.getSvgRoot();
+  const container = (canvas as any).getDOMContainer();
+  const content = canvas.getSvgContent();
+
+  // If clicking on root/container, return root
+  if ([svgRoot, container, content].includes(mouseTarget)) {
+    return svgRoot;
+  }
+
+  // If clicking on a selector grip, return selector parent group
+  if (mouseTarget.closest && mouseTarget.closest('#selectorParentGroup')) {
+    return (canvas as any).selectorManager.selectorParentGroup;
+  }
+
+  // Walk up to find the nearest shape element (but don't skip to the group)
+  let target = mouseTarget;
+  while (target && target !== svgRoot && target !== content) {
+    const tagName = target.tagName?.toLowerCase();
+    // If we found a shape element, return it
+    if (tagName && SHAPE_ELEMENTS.includes(tagName)) {
+      return target;
+    }
+    // Walk up
+    target = target.parentNode as SVGElement;
+  }
+
+  // If no shape found, return the original target
+  return mouseTarget;
+};
+
 // Helper to get selected elements
 function getSelectedElements(): SVGGraphicsElement[] {
   return (canvas.getSelectedElements() || []) as SVGGraphicsElement[];
@@ -105,24 +150,46 @@ const stylePanel = new SvgeditStylePanel(
   }
 );
 
-// Apply style to selected elements
-function applyStyleToSelection(style: StyleState): void {
+// Apply style/attributes to selected elements
+function applyStyleToSelection(attrs: any): void {
   try {
     const elems = getSelectedElements();
     elems.forEach((el: SVGElement) => {
-      if (style.fill) el.setAttribute('fill', style.fill);
-      if (style.fillOpacity !== undefined) el.setAttribute('fill-opacity', style.fillOpacity.toString());
-      if (style.stroke) el.setAttribute('stroke', style.stroke);
-      if (style.strokeWidth !== undefined) el.setAttribute('stroke-width', style.strokeWidth.toString());
-      if (style.strokeOpacity !== undefined) el.setAttribute('stroke-opacity', style.strokeOpacity.toString());
-      if (style.fontFamily) el.setAttribute('font-family', style.fontFamily);
-      if (style.fontSize !== undefined) el.setAttribute('font-size', style.fontSize.toString());
-      if (style.fontWeight) el.setAttribute('font-weight', style.fontWeight);
-      if (style.fontStyle) el.setAttribute('font-style', style.fontStyle);
-      if (style.opacity !== undefined) el.setAttribute('opacity', style.opacity.toString());
+      // Style attributes
+      if (attrs.fill !== undefined) el.setAttribute('fill', attrs.fill);
+      if (attrs.fillOpacity !== undefined) el.setAttribute('fill-opacity', attrs.fillOpacity.toString());
+      if (attrs.stroke !== undefined) el.setAttribute('stroke', attrs.stroke);
+      if (attrs.strokeWidth !== undefined) el.setAttribute('stroke-width', attrs.strokeWidth.toString());
+      if (attrs.strokeOpacity !== undefined) el.setAttribute('stroke-opacity', attrs.strokeOpacity.toString());
+      if (attrs.fontFamily !== undefined) el.setAttribute('font-family', attrs.fontFamily);
+      if (attrs.fontSize !== undefined) el.setAttribute('font-size', attrs.fontSize.toString());
+      if (attrs.fontWeight !== undefined) el.setAttribute('font-weight', attrs.fontWeight);
+      if (attrs.fontStyle !== undefined) el.setAttribute('font-style', attrs.fontStyle);
+      if (attrs.opacity !== undefined) el.setAttribute('opacity', attrs.opacity.toString());
+      if (attrs.transform !== undefined) el.setAttribute('transform', attrs.transform);
+
+      // Position/Size attributes
+      if (attrs.id !== undefined && el.id !== attrs.id) {
+        el.id = attrs.id;
+      }
+      if (attrs.x !== undefined) el.setAttribute('x', attrs.x.toString());
+      if (attrs.y !== undefined) el.setAttribute('y', attrs.y.toString());
+      if (attrs.width !== undefined) el.setAttribute('width', attrs.width.toString());
+      if (attrs.height !== undefined) el.setAttribute('height', attrs.height.toString());
+      if (attrs.cx !== undefined) el.setAttribute('cx', attrs.cx.toString());
+      if (attrs.cy !== undefined) el.setAttribute('cy', attrs.cy.toString());
+      if (attrs.r !== undefined) el.setAttribute('r', attrs.r.toString());
+      if (attrs.rx !== undefined) el.setAttribute('rx', attrs.rx.toString());
+      if (attrs.ry !== undefined) el.setAttribute('ry', attrs.ry.toString());
+      if (attrs.x1 !== undefined) el.setAttribute('x1', attrs.x1.toString());
+      if (attrs.y1 !== undefined) el.setAttribute('y1', attrs.y1.toString());
+      if (attrs.x2 !== undefined) el.setAttribute('x2', attrs.x2.toString());
+      if (attrs.y2 !== undefined) el.setAttribute('y2', attrs.y2.toString());
+      if (attrs.d !== undefined) el.setAttribute('d', attrs.d);
+      if (attrs.points !== undefined) el.setAttribute('points', attrs.points);
     });
   } catch (error) {
-    logger.error('Failed to apply style to selection', error);
+    logger.error('Failed to apply attributes to selection', error);
   }
 }
 
@@ -316,6 +383,44 @@ canvas.bind('changed', () => {
   notifyChange();
 });
 
+// Track selection changes
+canvas.bind('selectedChanged', (window: any, elems: SVGElement[]) => {
+  try {
+    // Update style panel from selection
+    stylePanel.updateFromSelection();
+
+    // Notify VS Code of selection change
+    if (elems && elems.length > 0) {
+      const el = elems[0];
+      vscode.postMessage({
+        command: 'selectionChanged',
+        data: {
+          elementId: el.id || null,
+          tagName: el.tagName,
+          attributes: getElementAttributes(el)
+        }
+      });
+    } else {
+      vscode.postMessage({
+        command: 'selectionChanged',
+        data: null
+      });
+    }
+  } catch (error) {
+    logger.error('Failed to handle selection change', error);
+  }
+});
+
+// Get element attributes for properties panel
+function getElementAttributes(el: SVGElement): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  for (let i = 0; i < el.attributes.length; i++) {
+    const attr = el.attributes[i];
+    attrs[attr.name] = attr.value;
+  }
+  return attrs;
+}
+
 // VS Code -> SVG Edit message handler
 window.addEventListener('message', (event) => {
   const message = event.data;
@@ -370,6 +475,19 @@ window.addEventListener('message', (event) => {
       }
       if (message.data.indentSize !== undefined) {
         configuration.indentSize = message.data.indentSize;
+      }
+      break;
+    }
+
+    case 'selectElement': {
+      // Select element on canvas from text editor
+      if (message.data && message.data.elementId) {
+        const svgContent = canvas.getSvgContent();
+        const el = svgContent.querySelector(`#${message.data.elementId}`);
+        if (el) {
+          canvas.clearSelection();
+          canvas.selectOnly([el as SVGElement], true);
+        }
       }
       break;
     }
