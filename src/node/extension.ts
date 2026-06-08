@@ -35,7 +35,7 @@ function iterate<T extends object, R>(obj: T, fn: (key: Extract<keyof T, string>
     return acc;
 }
 
-type PanelSet = { panel: vscode.WebviewPanel, editor: vscode.TextEditor, text: string, blockOnChangeText: boolean, messageDisposable?: vscode.Disposable };
+type PanelSet = { panel: vscode.WebviewPanel, editor: vscode.TextEditor, text: string, blockOnChangeText: boolean, blockSelectionSync: boolean, messageDisposable?: vscode.Disposable };
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -87,7 +87,7 @@ export function activate(context: vscode.ExtensionContext) {
             return panel;
         })();
         panel.webview.html = replaceMagic(viewer, { bundleJs, css, svgeditCss, icons, uri: editor.document.uri.toString() });
-        panelSet = { panel, editor, text, blockOnChangeText: false };
+        panelSet = { panel, editor, text, blockOnChangeText: false, blockSelectionSync: false };
         setListener(panelSet);
         setWebviewActiveContext(oldPanel ? false : true);
     }
@@ -243,6 +243,12 @@ export function activate(context: vscode.ExtensionContext) {
                         }
                         return;
                     case "selectionChanged":
+                        // If the selection change originated from the text editor, skip cursor movement
+                        // to avoid a feedback loop (text click → canvas → text cursor jump to tag start)
+                        if (pset.blockSelectionSync) {
+                            pset.blockSelectionSync = false;
+                            return;
+                        }
                         // Handle selection change from canvas - move cursor to element in text editor
                         if (message.data) {
                             const text = pset.text;
@@ -415,6 +421,9 @@ export function activate(context: vscode.ExtensionContext) {
             data = { tagName: target.tag, tagIndex: result.tagIndex };
         }
 
+        // Block the webview→text-editor selection sync to prevent feedback loop:
+        // text editor click → selectElement → canvas selected → selectionChanged → cursor jump
+        panelSet.blockSelectionSync = true;
         panelSet.panel.webview.postMessage({
             command: "selectElement",
             data: data
