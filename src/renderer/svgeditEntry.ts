@@ -456,7 +456,7 @@ canvas.bind('transition', () => {
 });
 
 // Track selection changes
-canvas.bind('selectedChanged', (window: any, elems: SVGElement[]) => {
+canvas.bind('selected', (window: any, elems: SVGElement[]) => {
   try {
     // Update style panel from selection
     stylePanel.updateFromSelection();

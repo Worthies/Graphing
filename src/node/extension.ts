@@ -554,7 +554,11 @@ export function activate(context: vscode.ExtensionContext) {
         };
         var lspConfig = vscode.workspace.getConfiguration("graphing");
         var clientOptions: LanguageClientOptions = {
-            documentSelector: [{ scheme: "file", language: "svg" }],
+            documentSelector: [
+                { scheme: "file", language: "svg" },
+                { scheme: "untitled", language: "svg" },
+                { scheme: "file", language: "xml", pattern: "**/*.svg" } as any
+            ],
             outputChannel: outputChannel,
             initializationOptions: {
                 indentStyle: lspConfig.get<string>("indentStyle"),

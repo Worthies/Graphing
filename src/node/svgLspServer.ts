@@ -641,7 +641,6 @@ connection.languages.semanticTokens.on(function (params: SemanticTokensParams): 
         if (!doc) return { data: [] };
 
         var text = doc.getText();
-        var data: number[] = [];
 
         // Pre-compute line offsets for efficient position lookup
         var lineOffsets: number[] = [0];
@@ -651,20 +650,7 @@ connection.languages.semanticTokens.on(function (params: SemanticTokensParams): 
             }
         }
 
-        // Track position for delta encoding
-        var prevLine = 0;
-        var prevChar = 0;
-
-        function pushToken(line: number, char: number, length: number, tokenType: number, tokenModifiers: number): void {
-            var deltaLine = line - prevLine;
-            var deltaChar = (deltaLine === 0) ? char - prevChar : char;
-            data.push(deltaLine, deltaChar, length, tokenType, tokenModifiers);
-            prevLine = line;
-            prevChar = char;
-        }
-
         function getLineCol(pos: number): { line: number; col: number } {
-            // Binary search for line number
             var lo = 0, hi = lineOffsets.length - 1;
             while (lo < hi) {
                 var mid = (lo + hi + 1) >> 1;
@@ -673,6 +659,9 @@ connection.languages.semanticTokens.on(function (params: SemanticTokensParams): 
             }
             return { line: lo, col: pos - lineOffsets[lo] };
         }
+
+        // Collect all tokens first, then sort by document position
+        var tokens: { line: number; char: number; length: number; type: number }[] = [];
 
         // Parse XML tags and attributes using regex
         var tagRegex = /<\/?([a-zA-Z][\w:-]*)((?:\s+[^>]*?)?)(\s*\/?>)/g;
@@ -685,7 +674,6 @@ connection.languages.semanticTokens.on(function (params: SemanticTokensParams): 
             var tagStart = match.index;
             var isClosing = fullTag.charAt(1) === "/";
 
-            // Highlight tag name
             var nameOffset = isClosing ? 2 : 1;
             var namePos = tagStart + nameOffset;
             var nameLoc = getLineCol(namePos);
@@ -693,9 +681,8 @@ connection.languages.semanticTokens.on(function (params: SemanticTokensParams): 
             if (tagName === "svg" || tagName === "g" || tagName === "defs") {
                 tokenType = TOKEN_TYPE_NAMESPACE;
             }
-            pushToken(nameLoc.line, nameLoc.col, tagName.length, tokenType, 0);
+            tokens.push({ line: nameLoc.line, char: nameLoc.col, length: tagName.length, type: tokenType });
 
-            // Highlight attributes within the tag
             if (attrs) {
                 var attrRegex = /([a-zA-Z][\w:-]*)\s*=\s*"([^"]*)"/g;
                 var attrMatch: RegExpExecArray | null;
@@ -708,14 +695,16 @@ connection.languages.semanticTokens.on(function (params: SemanticTokensParams): 
                     var valueStart = attrStart + attrName.length + attrMatch[0].indexOf(attrValue) - attrMatch.index;
 
                     var attrNameLoc = getLineCol(attrStart);
-                    pushToken(attrNameLoc.line, attrNameLoc.col, attrName.length, TOKEN_TYPE_PROPERTY, 0);
+                    tokens.push({ line: attrNameLoc.line, char: attrNameLoc.col, length: attrName.length, type: TOKEN_TYPE_PROPERTY });
 
                     var valueLoc = getLineCol(valueStart);
                     var valueTokenType = TOKEN_TYPE_STRING;
                     if (/^-?\d+(\.\d+)?(%|px|em|pt|cm|mm|in|pc|ex)?$/i.test(attrValue)) {
                         valueTokenType = TOKEN_TYPE_NUMBER;
+                    } else if (/^(#[0-9a-fA-F]{3,8}|rgb\(|rgba\(|hsl\(|hsla\()/.test(attrValue)) {
+                        valueTokenType = TOKEN_TYPE_DECORATOR;
                     }
-                    pushToken(valueLoc.line, valueLoc.col, attrValue.length, valueTokenType, 0);
+                    tokens.push({ line: valueLoc.line, char: valueLoc.col, length: attrValue.length, type: valueTokenType });
                 }
             }
         }
@@ -725,7 +714,25 @@ connection.languages.semanticTokens.on(function (params: SemanticTokensParams): 
         var commentMatch: RegExpExecArray | null;
         while ((commentMatch = commentRegex.exec(text)) !== null) {
             var commentLoc = getLineCol(commentMatch.index);
-            pushToken(commentLoc.line, commentLoc.col, commentMatch[0].length, TOKEN_TYPE_COMMENT, 0);
+            tokens.push({ line: commentLoc.line, char: commentLoc.col, length: commentMatch[0].length, type: TOKEN_TYPE_COMMENT });
+        }
+
+        // Sort by document position (line first, then column)
+        tokens.sort(function (a, b) {
+            return a.line !== b.line ? a.line - b.line : a.char - b.char;
+        });
+
+        // Delta-encode sorted tokens
+        var data: number[] = [];
+        var prevLine = 0;
+        var prevChar = 0;
+        for (var t = 0; t < tokens.length; t++) {
+            var tok = tokens[t];
+            var deltaLine = tok.line - prevLine;
+            var deltaChar = (deltaLine === 0) ? tok.char - prevChar : tok.char;
+            data.push(deltaLine, deltaChar, tok.length, tok.type, 0);
+            prevLine = tok.line;
+            prevChar = tok.char;
         }
 
         return { data: data };
@@ -742,29 +749,12 @@ connection.languages.semanticTokens.onRange(function (params: any): SemanticToke
         if (!doc) return { data: [] };
 
         var text = doc.getText();
-        var data: number[] = [];
 
         var lineOffsets: number[] = [0];
         for (var i = 0; i < text.length; i++) {
             if (text.charAt(i) === "\n") {
                 lineOffsets.push(i + 1);
             }
-        }
-
-        var prevLine = 0;
-        var prevChar = 0;
-
-        function pushToken(line: number, char: number, length: number, tokenType: number, tokenModifiers: number): void {
-            // Filter by range
-            if (line < params.range.start.line || line > params.range.end.line) return;
-            if (line === params.range.start.line && char < params.range.start.character) return;
-            if (line === params.range.end.line && char > params.range.end.character) return;
-
-            var deltaLine = line - prevLine;
-            var deltaChar = (deltaLine === 0) ? char - prevChar : char;
-            data.push(deltaLine, deltaChar, length, tokenType, tokenModifiers);
-            prevLine = line;
-            prevChar = char;
         }
 
         function getLineCol(pos: number): { line: number; col: number } {
@@ -776,6 +766,9 @@ connection.languages.semanticTokens.onRange(function (params: any): SemanticToke
             }
             return { line: lo, col: pos - lineOffsets[lo] };
         }
+
+        // Collect all tokens first, then sort by document position
+        var tokens: { line: number; char: number; length: number; type: number }[] = [];
 
         var tagRegex = /<\/?([a-zA-Z][\w:-]*)((?:\s+[^>]*?)?)(\s*\/?>)/g;
         var match: RegExpExecArray | null;
@@ -794,7 +787,7 @@ connection.languages.semanticTokens.onRange(function (params: any): SemanticToke
             if (tagName === "svg" || tagName === "g" || tagName === "defs") {
                 tokenType = TOKEN_TYPE_NAMESPACE;
             }
-            pushToken(nameLoc.line, nameLoc.col, tagName.length, tokenType, 0);
+            tokens.push({ line: nameLoc.line, char: nameLoc.col, length: tagName.length, type: tokenType });
 
             if (attrs) {
                 var attrRegex = /([a-zA-Z][\w:-]*)\s*=\s*"([^"]*)"/g;
@@ -808,7 +801,7 @@ connection.languages.semanticTokens.onRange(function (params: any): SemanticToke
                     var valueStart = attrStart + attrName.length + attrMatch[0].indexOf(attrValue) - attrMatch.index;
 
                     var attrNameLoc = getLineCol(attrStart);
-                    pushToken(attrNameLoc.line, attrNameLoc.col, attrName.length, TOKEN_TYPE_PROPERTY, 0);
+                    tokens.push({ line: attrNameLoc.line, char: attrNameLoc.col, length: attrName.length, type: TOKEN_TYPE_PROPERTY });
 
                     var valueLoc = getLineCol(valueStart);
                     var valueTokenType = TOKEN_TYPE_STRING;
@@ -817,7 +810,7 @@ connection.languages.semanticTokens.onRange(function (params: any): SemanticToke
                     } else if (/^(#[0-9a-fA-F]{3,8}|rgb\(|rgba\(|hsl\(|hsla\()/.test(attrValue)) {
                         valueTokenType = TOKEN_TYPE_DECORATOR;
                     }
-                    pushToken(valueLoc.line, valueLoc.col, attrValue.length, valueTokenType, 0);
+                    tokens.push({ line: valueLoc.line, char: valueLoc.col, length: attrValue.length, type: valueTokenType });
                 }
             }
         }
@@ -826,7 +819,29 @@ connection.languages.semanticTokens.onRange(function (params: any): SemanticToke
         var commentMatch: RegExpExecArray | null;
         while ((commentMatch = commentRegex.exec(text)) !== null) {
             var commentLoc = getLineCol(commentMatch.index);
-            pushToken(commentLoc.line, commentLoc.col, commentMatch[0].length, TOKEN_TYPE_COMMENT, 0);
+            tokens.push({ line: commentLoc.line, char: commentLoc.col, length: commentMatch[0].length, type: TOKEN_TYPE_COMMENT });
+        }
+
+        // Sort by document position
+        tokens.sort(function (a, b) {
+            return a.line !== b.line ? a.line - b.line : a.char - b.char;
+        });
+
+        // Delta-encode, filtering by range
+        var data: number[] = [];
+        var prevLine = 0;
+        var prevChar = 0;
+        for (var t = 0; t < tokens.length; t++) {
+            var tok = tokens[t];
+            if (tok.line < params.range.start.line || tok.line > params.range.end.line) continue;
+            if (tok.line === params.range.start.line && tok.char < params.range.start.character) continue;
+            if (tok.line === params.range.end.line && tok.char > params.range.end.character) continue;
+
+            var deltaLine = tok.line - prevLine;
+            var deltaChar = (deltaLine === 0) ? tok.char - prevChar : tok.char;
+            data.push(deltaLine, deltaChar, tok.length, tok.type, 0);
+            prevLine = tok.line;
+            prevChar = tok.char;
         }
 
         return { data: data };
