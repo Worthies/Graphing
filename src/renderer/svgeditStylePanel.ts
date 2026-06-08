@@ -70,7 +70,7 @@ export class SvgeditStylePanel {
   private currentAttributes: ElementAttributes = { ...DEFAULT_ATTRIBUTES };
   private onStyleChange: (style: StyleState) => void;
   private inputs: Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> = new Map();
-  private propertiesContainer: HTMLElement | null = null;
+  private panel: HTMLElement | null = null;
 
   constructor(
     container: HTMLElement,
@@ -173,9 +173,9 @@ export class SvgeditStylePanel {
   }
 
   private render(): void {
-    const panel = document.createElement('div');
-    panel.className = 'graphing-properties-panel';
-    panel.style.cssText = `
+    this.panel = document.createElement('div');
+    this.panel.className = 'graphing-properties-panel';
+    this.panel.style.cssText = `
       display: flex;
       flex-direction: column;
       padding: 8px;
@@ -187,50 +187,129 @@ export class SvgeditStylePanel {
       overflow-y: auto;
     `;
 
-    // Properties sections container
-    this.propertiesContainer = document.createElement('div');
-    this.propertiesContainer.style.cssText = 'display: flex; flex-direction: column; gap: 8px;';
+    this.container.appendChild(this.panel);
+    this.rebuildPanel();
+  }
+
+  private rebuildPanel(): void {
+    if (!this.panel) return;
+    this.panel.innerHTML = '';
+    this.inputs.clear();
+
+    const attrs = this.currentAttributes;
+    const tagName = attrs.tagName;
 
     // Element Info section
-    this.propertiesContainer.appendChild(this.createSection('Element', [
-      this.createTextControl('ID', 'id', ''),
-      this.createReadOnlyControl('Tag', 'tagName', '')
+    this.panel.appendChild(this.createSection('Element', [
+      this.createTextControl('ID', 'id', attrs.id),
+      this.createReadOnlyControl('Tag', 'tagName', tagName)
     ]));
 
-    // Position/Size section (dynamic based on element type)
-    const positionSection = document.createElement('div');
-    positionSection.id = 'position-section';
-    this.propertiesContainer.appendChild(positionSection);
+    // Position/Size section (only for elements with geometry)
+    if (tagName && ['rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'path', 'text', 'image'].includes(tagName)) {
+      const controls: HTMLElement[] = [];
+
+      switch (tagName) {
+        case 'rect':
+          controls.push(
+            this.createNumberControl('X', 'x', attrs.x || 0, -9999, 9999, 1),
+            this.createNumberControl('Y', 'y', attrs.y || 0, -9999, 9999, 1),
+            this.createNumberControl('Width', 'width', attrs.width || 0, 0, 9999, 1),
+            this.createNumberControl('Height', 'height', attrs.height || 0, 0, 9999, 1),
+            this.createNumberControl('RX', 'rx', attrs.rx || 0, 0, 9999, 1),
+            this.createNumberControl('RY', 'ry', attrs.ry || 0, 0, 9999, 1)
+          );
+          break;
+
+        case 'circle':
+          controls.push(
+            this.createNumberControl('CX', 'cx', attrs.cx || 0, -9999, 9999, 1),
+            this.createNumberControl('CY', 'cy', attrs.cy || 0, -9999, 9999, 1),
+            this.createNumberControl('R', 'r', attrs.r || 0, 0, 9999, 1)
+          );
+          break;
+
+        case 'ellipse':
+          controls.push(
+            this.createNumberControl('CX', 'cx', attrs.cx || 0, -9999, 9999, 1),
+            this.createNumberControl('CY', 'cy', attrs.cy || 0, -9999, 9999, 1),
+            this.createNumberControl('RX', 'rx', attrs.rx || 0, 0, 9999, 1),
+            this.createNumberControl('RY', 'ry', attrs.ry || 0, 0, 9999, 1)
+          );
+          break;
+
+        case 'line':
+          controls.push(
+            this.createNumberControl('X1', 'x1', attrs.x1 || 0, -9999, 9999, 1),
+            this.createNumberControl('Y1', 'y1', attrs.y1 || 0, -9999, 9999, 1),
+            this.createNumberControl('X2', 'x2', attrs.x2 || 0, -9999, 9999, 1),
+            this.createNumberControl('Y2', 'y2', attrs.y2 || 0, -9999, 9999, 1)
+          );
+          break;
+
+        case 'polyline':
+        case 'polygon':
+          controls.push(
+            this.createTextAreaControl('Points', 'points', attrs.points || '')
+          );
+          break;
+
+        case 'path':
+          controls.push(
+            this.createTextAreaControl('Path', 'd', attrs.d || '')
+          );
+          break;
+
+        case 'text':
+          controls.push(
+            this.createNumberControl('X', 'x', attrs.x || 0, -9999, 9999, 1),
+            this.createNumberControl('Y', 'y', attrs.y || 0, -9999, 9999, 1)
+          );
+          break;
+
+        case 'image':
+          controls.push(
+            this.createNumberControl('X', 'x', attrs.x || 0, -9999, 9999, 1),
+            this.createNumberControl('Y', 'y', attrs.y || 0, -9999, 9999, 1),
+            this.createNumberControl('Width', 'width', attrs.width || 0, 0, 9999, 1),
+            this.createNumberControl('Height', 'height', attrs.height || 0, 0, 9999, 1)
+          );
+          break;
+      }
+
+      if (controls.length > 0) {
+        this.panel.appendChild(this.createSection('Position & Size', controls));
+      }
+    }
 
     // Style section
-    this.propertiesContainer.appendChild(this.createSection('Style', [
-      this.createColorControl('Fill', 'fill', DEFAULT_STYLE.fill),
-      this.createNumberControl('Fill Opacity', 'fillOpacity', DEFAULT_STYLE.fillOpacity, 0, 1, 0.1),
-      this.createColorControl('Stroke', 'stroke', DEFAULT_STYLE.stroke),
-      this.createNumberControl('Stroke Width', 'strokeWidth', DEFAULT_STYLE.strokeWidth, 0, 100, 0.5),
-      this.createNumberControl('Stroke Opacity', 'strokeOpacity', DEFAULT_STYLE.strokeOpacity, 0, 1, 0.1)
+    this.panel.appendChild(this.createSection('Style', [
+      this.createColorControl('Fill', 'fill', attrs.fill),
+      this.createNumberControl('Fill Opacity', 'fillOpacity', attrs.fillOpacity, 0, 1, 0.1),
+      this.createColorControl('Stroke', 'stroke', attrs.stroke),
+      this.createNumberControl('Stroke Width', 'strokeWidth', attrs.strokeWidth, 0, 100, 0.5),
+      this.createNumberControl('Stroke Opacity', 'strokeOpacity', attrs.strokeOpacity, 0, 1, 0.1)
     ]));
 
-    // Font section
-    this.propertiesContainer.appendChild(this.createSection('Font', [
-      this.createTextControl('Family', 'fontFamily', DEFAULT_STYLE.fontFamily),
-      this.createNumberControl('Size', 'fontSize', DEFAULT_STYLE.fontSize, 1, 200, 1),
-      this.createSelectControl('Weight', 'fontWeight', DEFAULT_STYLE.fontWeight, ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900']),
-      this.createSelectControl('Style', 'fontStyle', DEFAULT_STYLE.fontStyle, ['normal', 'italic', 'oblique'])
-    ]));
+    // Font section (only for text elements)
+    if (tagName === 'text') {
+      this.panel.appendChild(this.createSection('Font', [
+        this.createTextControl('Family', 'fontFamily', attrs.fontFamily),
+        this.createNumberControl('Size', 'fontSize', attrs.fontSize, 1, 200, 1),
+        this.createSelectControl('Weight', 'fontWeight', attrs.fontWeight, ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900']),
+        this.createSelectControl('Style', 'fontStyle', attrs.fontStyle, ['normal', 'italic', 'oblique'])
+      ]));
+    }
 
     // Transform section
-    this.propertiesContainer.appendChild(this.createSection('Transform', [
-      this.createTextControl('Transform', 'transform', '')
+    this.panel.appendChild(this.createSection('Transform', [
+      this.createTextControl('Transform', 'transform', attrs.transform)
     ]));
 
     // Opacity section
-    this.propertiesContainer.appendChild(this.createSection('Opacity', [
-      this.createNumberControl('Opacity', 'opacity', DEFAULT_STYLE.opacity, 0, 1, 0.1)
+    this.panel.appendChild(this.createSection('Opacity', [
+      this.createNumberControl('Opacity', 'opacity', attrs.opacity, 0, 1, 0.1)
     ]));
-
-    panel.appendChild(this.propertiesContainer);
-    this.container.appendChild(panel);
   }
 
   private createSection(title: string, controls: HTMLElement[]): HTMLElement {
@@ -276,120 +355,6 @@ export class SvgeditStylePanel {
     section.appendChild(content);
 
     return section;
-  }
-
-  private updatePositionSection(): void {
-    const positionSection = document.getElementById('position-section');
-    if (!positionSection) return;
-
-    // Clear existing content
-    positionSection.innerHTML = '';
-    positionSection.style.cssText = `
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding: 4px 0;
-      border-bottom: 1px solid var(--vscode-sideBar-border, #3c3c3c);
-    `;
-
-    const controls: HTMLElement[] = [];
-    const tagName = this.currentAttributes.tagName;
-
-    switch (tagName) {
-      case 'rect':
-      case 'image':
-        controls.push(
-          this.createNumberControl('X', 'x', this.currentAttributes.x || 0, -9999, 9999, 1),
-          this.createNumberControl('Y', 'y', this.currentAttributes.y || 0, -9999, 9999, 1),
-          this.createNumberControl('Width', 'width', this.currentAttributes.width || 0, 0, 9999, 1),
-          this.createNumberControl('Height', 'height', this.currentAttributes.height || 0, 0, 9999, 1)
-        );
-        if (tagName === 'rect') {
-          controls.push(
-            this.createNumberControl('RX', 'rx', this.currentAttributes.rx || 0, 0, 9999, 1),
-            this.createNumberControl('RY', 'ry', this.currentAttributes.ry || 0, 0, 9999, 1)
-          );
-        }
-        break;
-
-      case 'circle':
-        controls.push(
-          this.createNumberControl('CX', 'cx', this.currentAttributes.cx || 0, -9999, 9999, 1),
-          this.createNumberControl('CY', 'cy', this.currentAttributes.cy || 0, -9999, 9999, 1),
-          this.createNumberControl('R', 'r', this.currentAttributes.r || 0, 0, 9999, 1)
-        );
-        break;
-
-      case 'ellipse':
-        controls.push(
-          this.createNumberControl('CX', 'cx', this.currentAttributes.cx || 0, -9999, 9999, 1),
-          this.createNumberControl('CY', 'cy', this.currentAttributes.cy || 0, -9999, 9999, 1),
-          this.createNumberControl('RX', 'rx', this.currentAttributes.rx || 0, 0, 9999, 1),
-          this.createNumberControl('RY', 'ry', this.currentAttributes.ry || 0, 0, 9999, 1)
-        );
-        break;
-
-      case 'line':
-        controls.push(
-          this.createNumberControl('X1', 'x1', this.currentAttributes.x1 || 0, -9999, 9999, 1),
-          this.createNumberControl('Y1', 'y1', this.currentAttributes.y1 || 0, -9999, 9999, 1),
-          this.createNumberControl('X2', 'x2', this.currentAttributes.x2 || 0, -9999, 9999, 1),
-          this.createNumberControl('Y2', 'y2', this.currentAttributes.y2 || 0, -9999, 9999, 1)
-        );
-        break;
-
-      case 'polyline':
-      case 'polygon':
-        controls.push(
-          this.createTextAreaControl('Points', 'points', this.currentAttributes.points || '')
-        );
-        break;
-
-      case 'path':
-        controls.push(
-          this.createTextAreaControl('Path', 'd', this.currentAttributes.d || '')
-        );
-        break;
-
-      case 'text':
-        controls.push(
-          this.createNumberControl('X', 'x', this.currentAttributes.x || 0, -9999, 9999, 1),
-          this.createNumberControl('Y', 'y', this.currentAttributes.y || 0, -9999, 9999, 1)
-        );
-        break;
-    }
-
-    if (controls.length > 0) {
-      const header = document.createElement('div');
-      header.className = 'graphing-properties-section-header';
-      header.style.cssText = `
-        font-weight: bold;
-        font-size: 11px;
-        text-transform: uppercase;
-        opacity: 0.7;
-        cursor: pointer;
-        user-select: none;
-      `;
-      header.textContent = 'Position & Size';
-
-      const content = document.createElement('div');
-      content.className = 'graphing-properties-section-content';
-      content.style.cssText = `
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      `;
-
-      header.addEventListener('click', () => {
-        const isVisible = content.style.display !== 'none';
-        content.style.display = isVisible ? 'none' : 'flex';
-        header.textContent = (isVisible ? '▶ ' : '▼ ') + 'Position & Size';
-      });
-
-      controls.forEach(control => content.appendChild(control));
-      positionSection.appendChild(header);
-      positionSection.appendChild(content);
-    }
   }
 
   private createColorControl(label: string, property: keyof ElementAttributes, value: string): HTMLElement {
@@ -595,23 +560,6 @@ export class SvgeditStylePanel {
   }
 
   private updateUI(): void {
-    // Update position section based on element type
-    this.updatePositionSection();
-
-    // Update all input values
-    for (const [property, input] of this.inputs) {
-      const value = (this.currentAttributes as any)[property];
-      if (input instanceof HTMLInputElement) {
-        if (input.type === 'number') {
-          input.value = value != null ? value.toString() : '';
-        } else {
-          input.value = value || '';
-        }
-      } else if (input instanceof HTMLSelectElement) {
-        input.value = value || '';
-      } else if (input instanceof HTMLTextAreaElement) {
-        input.value = value || '';
-      }
-    }
+    this.rebuildPanel();
   }
 }

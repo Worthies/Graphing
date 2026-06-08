@@ -12,7 +12,8 @@ export type Operation = 'delete' | 'duplicate' | 'group' | 'ungroup' | 'bringFor
   'rotateClockwise' | 'rotateCounterclockwise' |
   'rotateClockwiseByTheAngleStep' | 'rotateCounterclockwiseByTheAngleStep' |
   'zoomIn' | 'zoomOut' | 'objectToPath' |
-  'centerVertical' | 'centerHorizontal';
+  'centerVertical' | 'centerHorizontal' |
+  'polygonToRect';
 
 interface ToolbarButton {
   id: string;
@@ -53,7 +54,9 @@ const operationButtons: ToolbarButton[] = [
   { id: 'zoomIn', label: 'Zoom In', title: 'Zoom In (+)', codicon: 'zoom-in', operation: 'zoomIn' },
   { id: 'zoomOut', label: 'Zoom Out', title: 'Zoom Out (-)', codicon: 'zoom-out', operation: 'zoomOut' },
   { id: 'centerVertical', label: 'Center V', title: 'Center Vertical', codicon: 'symbol-numeric', operation: 'centerVertical' },
-  { id: 'centerHorizontal', label: 'Center H', title: 'Center Horizontal', codicon: 'symbol-numeric', operation: 'centerHorizontal' }
+  { id: 'centerHorizontal', label: 'Center H', title: 'Center Horizontal', codicon: 'symbol-numeric', operation: 'centerHorizontal' },
+  { id: 'separator4', label: '', title: '' },
+  { id: 'polygonToRect', label: 'To Rect', title: 'Convert Polygon to Rectangle', codicon: 'symbol-square', operation: 'polygonToRect' }
 ];
 
 export class SvgeditToolbar {

@@ -125,6 +125,12 @@ export const icons: Record<string, string> = {
   centerHorizontal: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="2 2"/>
     <rect x="5" y="4" width="6" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
+  </svg>`,
+
+  polygonToRect: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="3,4 13,3 14,12 2,13" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 2"/>
+    <rect x="2" y="3" width="12" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M8 1L8 3M8 13L8 15" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
   </svg>`
 };
 

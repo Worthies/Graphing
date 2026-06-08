@@ -103,22 +103,79 @@ export function activate(context: vscode.ExtensionContext) {
             try {
                 switch (message.command) {
                     case "modified":
+                        const newSvgString = message.data as string;
+                        if (!newSvgString) {
+                            outputChannel.appendLine("Received empty SVG string, skipping");
+                            return;
+                        }
+
+                        // Prevent feedback loop
+                        if (pset.blockOnChangeText) {
+                            outputChannel.appendLine("Already processing change, skipping");
+                            return;
+                        }
+
                         pset.blockOnChangeText = true;
                         try {
-                            const originalXml = parseXml(pset.text);
-                            const newSvgString = message.data as string;
-                            const fixedXml = parseXml(newSvgString);
-                            if (fixedXml === null) {
-                                return;
+                            outputChannel.appendLine(`Received SVG update (${newSvgString.length} chars)`);
+
+                            // Try diff/patch first for incremental updates
+                            let applied = false;
+                            try {
+                                const originalXml = parseXml(pset.text);
+                                const fixedXml = parseXml(newSvgString);
+
+                                if (originalXml !== null && fixedXml !== null) {
+                                    const fixedXmlNop = trimPositions(fixedXml);
+                                    const unit = config.get<string>("indentStyle") === "tab" ? "\t" : " ".repeat(optionOf(config.get<number>("indentSize")).getOrElse(4));
+                                    const eol = pset.editor.document.eol === vscode.EndOfLine.LF ? "\n" : "\r\n";
+                                    const xmldiff = xmlSerialDiff(originalXml, fixedXmlNop, { indent: { unit, level: 0, eol } });
+
+                                    if (xmldiff.length > 0) {
+                                        await pset.editor.edit(editBuilder => {
+                                            patchByXmlDiff(pset.text, xmldiff, editBuilder);
+                                        });
+                                        pset.text = pset.editor.document.getText();
+                                        applied = true;
+                                        outputChannel.appendLine(`Applied ${xmldiff.length} diffs`);
+                                    } else {
+                                        outputChannel.appendLine("No diffs found, content identical");
+                                        applied = true; // No changes needed
+                                    }
+                                } else {
+                                    outputChannel.appendLine(`XML parse failed: original=${originalXml !== null}, new=${fixedXml !== null}`);
+                                }
+                            } catch (diffError) {
+                                outputChannel.appendLine(`Diff/patch error: ${diffError}`);
                             }
-                            const fixedXmlNop = trimPositions(fixedXml);
-                            const unit = config.get<string>("indentStyle") === "tab" ? "\t" : " ".repeat(optionOf(config.get<number>("indentSize")).getOrElse(4));
-                            const eol = pset.editor.document.eol === vscode.EndOfLine.LF ? "\n" : "\r\n";
-                            const xmldiff = xmlSerialDiff(originalXml, fixedXmlNop, { indent: { unit, level: 0, eol } });
-                            await pset.editor.edit(editBuilder => {
-                                patchByXmlDiff(pset.text, xmldiff, editBuilder);
+
+                            // Fallback: full text replacement if diff/patch didn't work
+                            if (!applied) {
+                                outputChannel.appendLine("Using full text replacement");
+                                const fullRange = new vscode.Range(
+                                    pset.editor.document.positionAt(0),
+                                    pset.editor.document.positionAt(pset.text.length)
+                                );
+                                const success = await pset.editor.edit(editBuilder => {
+                                    editBuilder.replace(fullRange, newSvgString);
+                                });
+                                if (success) {
+                                    pset.text = newSvgString;
+                                    outputChannel.appendLine("Full replacement succeeded");
+                                } else {
+                                    outputChannel.appendLine("Full replacement FAILED");
+                                    pset.panel.webview.postMessage({
+                                        command: "error",
+                                        data: "Failed to update SVG source"
+                                    });
+                                }
+                            }
+                        } catch (error) {
+                            outputChannel.appendLine(`Error processing SVG update: ${error}`);
+                            pset.panel.webview.postMessage({
+                                command: "error",
+                                data: `Sync error: ${error}`
                             });
-                            pset.text = pset.editor.document.getText();
                         } finally {
                             pset.blockOnChangeText = false;
                         }
@@ -186,11 +243,44 @@ export function activate(context: vscode.ExtensionContext) {
                         }
                         return;
                     case "selectionChanged":
-                        // Handle selection change from canvas
-                        if (message.data && message.data.elementId) {
-                            // Could be used to highlight corresponding element in text editor
-                            // For now, just log it
-                            outputChannel.appendLine(`Selection changed: ${message.data.tagName}#${message.data.elementId}`);
+                        // Handle selection change from canvas - move cursor to element in text editor
+                        if (message.data) {
+                            const text = pset.text;
+                            let tagStart = -1;
+
+                            if (message.data.elementId) {
+                                // Escape regex metacharacters in element ID
+                                const escapedId = message.data.elementId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                const idPattern = new RegExp('id="' + escapedId + '"', 'g');
+                                const match = idPattern.exec(text);
+
+                                if (match) {
+                                    tagStart = match.index;
+                                    while (tagStart > 0 && text[tagStart] !== '<') {
+                                        tagStart--;
+                                    }
+                                }
+                            } else if (message.data.tagName && message.data.tagIndex !== undefined) {
+                                // Find nth element of given tag type in document order
+                                const tagName = message.data.tagName;
+                                const targetIndex = message.data.tagIndex;
+                                const tagRegex = new RegExp('<' + tagName + '(?:\\s|>|/>)', 'g');
+                                let match: RegExpExecArray | null;
+                                let count = 0;
+                                while ((match = tagRegex.exec(text)) !== null) {
+                                    if (count === targetIndex) {
+                                        tagStart = match.index;
+                                        break;
+                                    }
+                                    count++;
+                                }
+                            }
+
+                            if (tagStart >= 0) {
+                                const position = pset.editor.document.positionAt(tagStart);
+                                pset.editor.selection = new vscode.Selection(position, position);
+                                pset.editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+                            }
                         }
                         return;
                 }
@@ -237,26 +327,98 @@ export function activate(context: vscode.ExtensionContext) {
     }, null, context.subscriptions);
 
     // Track cursor position changes to select corresponding element on canvas
+    // Cache parsed XML to avoid re-parsing on every cursor movement
+    let cachedSvgText: string | null = null;
+    let cachedXml: XmlElement | null = null;
+
+    function getCachedXml(svgText: string): XmlElement | null {
+        if (svgText !== cachedSvgText) {
+            cachedSvgText = svgText;
+            cachedXml = textToXml(svgText);
+        }
+        return cachedXml;
+    }
+
+    // Collect all elements in document order with their global tag index
+    function collectElements(root: XmlElement): { elem: XmlElement; tagIndex: number }[] {
+        const result: { elem: XmlElement; tagIndex: number }[] = [];
+        const tagCounters: Record<string, number> = {};
+
+        function walk(node: XmlElement): void {
+            const tag = node.tag;
+            if (tagCounters[tag] === undefined) tagCounters[tag] = 0;
+            const idx = tagCounters[tag];
+            tagCounters[tag] = idx + 1;
+            result.push({ elem: node, tagIndex: idx });
+
+            for (let i = 0; i < node.children.length; i++) {
+                const child = node.children[i];
+                if (child.type === "element") {
+                    walk(child as XmlElement);
+                }
+            }
+        }
+
+        walk(root);
+        return result;
+    }
+
+    // Find deepest element containing the offset, return it and its global tag index
+    function findElementAtWithIndex(root: XmlElement, offset: number): { elem: XmlElement; tagIndex: number } | null {
+        // First find the deepest element containing the offset
+        function findDeepest(node: XmlElement): XmlElement | null {
+            const interval = node.positions.interval;
+            if (offset < interval.start || offset > interval.end) return null;
+
+            for (let i = 0; i < node.children.length; i++) {
+                const child = node.children[i];
+                if (child.type === "element") {
+                    const found = findDeepest(child as XmlElement);
+                    if (found) return found;
+                }
+            }
+            return node;
+        }
+
+        const target = findDeepest(root);
+        if (!target) return null;
+
+        // Find its global tag index
+        const allElements = collectElements(root);
+        for (let i = 0; i < allElements.length; i++) {
+            if (allElements[i].elem === target) {
+                return { elem: target, tagIndex: allElements[i].tagIndex };
+            }
+        }
+
+        return { elem: target, tagIndex: 0 };
+    }
+
     vscode.window.onDidChangeTextEditorSelection((e: vscode.TextEditorSelectionChangeEvent) => {
         if (!panelSet || panelSet.editor !== e.textEditor) return;
 
         const position = e.selections[0].active;
-        const text = panelSet.text;
-
-        // Find element at cursor position using simple regex parsing
-        // Look backwards from cursor to find the nearest opening tag
         const offset = panelSet.editor.document.offsetAt(position);
-        const textBefore = text.substring(0, offset);
 
-        // Find the last opening tag before cursor
-        const tagMatch = textBefore.match(/<([a-zA-Z][\w:-]*)\s[^>]*?id="([^"]*)"[^>]*$/);
-        if (tagMatch) {
-            const elementId = tagMatch[2];
-            panelSet.panel.webview.postMessage({
-                command: "selectElement",
-                data: { elementId: elementId }
-            });
+        const xml = getCachedXml(panelSet.text);
+        if (!xml) return;
+
+        const result = findElementAtWithIndex(xml, offset);
+        if (!result) return;
+
+        const target = result.elem;
+        let data: any = null;
+
+        if (target.attrs.id) {
+            data = { elementId: target.attrs.id };
+        } else {
+            data = { tagName: target.tag, tagIndex: result.tagIndex };
         }
+
+        panelSet.panel.webview.postMessage({
+            command: "selectElement",
+            data: data
+        });
     }, null, context.subscriptions);
 
     vscode.window.onDidChangeActiveTextEditor(editor => {

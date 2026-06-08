@@ -12,6 +12,7 @@ import { SvgeditStylePanel, StyleState, ElementAttributes } from './svgeditStyle
 import { registerExtensions } from './svgeditExtensions';
 import { logger, withSyncErrorHandling } from './logger';
 import { debounce, requestIdleCallback } from './performance';
+import { polygonToRect as convertPolygonToRect } from './polygonToRect';
 
 declare function acquireVsCodeApi(): { postMessage(args: any): void };
 
@@ -80,9 +81,8 @@ try {
   logger.warn('Some extensions failed to register', error);
 }
 
-// Override getMouseTarget to select the actual shape element (not the group)
-// SVG shape elements that can be directly selected
-const SHAPE_ELEMENTS = ['rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'path', 'text', 'image', 'use', 'g'];
+// Override getMouseTarget to select shapes inside groups, but allow group selection too
+const SHAPE_ELEMENTS = ['rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'path', 'text', 'image', 'use'];
 
 (canvas as any).getMouseTarget = function(evt: MouseEvent): SVGElement | null {
   if (!evt) return null;
@@ -98,9 +98,10 @@ const SHAPE_ELEMENTS = ['rect', 'circle', 'ellipse', 'line', 'polyline', 'polygo
   const svgRoot = canvas.getSvgRoot();
   const container = (canvas as any).getDOMContainer();
   const content = canvas.getSvgContent();
+  const currentLayer = (canvas as any).getCurrentDrawing().getCurrentLayer();
 
-  // If clicking on root/container, return root
-  if ([svgRoot, container, content].includes(mouseTarget)) {
+  // If clicking on root/container/layer, return root
+  if ([svgRoot, container, content, currentLayer].includes(mouseTarget)) {
     return svgRoot;
   }
 
@@ -109,19 +110,28 @@ const SHAPE_ELEMENTS = ['rect', 'circle', 'ellipse', 'line', 'polyline', 'polygo
     return (canvas as any).selectorManager.selectorParentGroup;
   }
 
-  // Walk up to find the nearest shape element (but don't skip to the group)
+  // If the target is a shape element, return it directly
+  const targetTag = mouseTarget.tagName?.toLowerCase();
+  if (targetTag && SHAPE_ELEMENTS.includes(targetTag)) {
+    return mouseTarget;
+  }
+
+  // If the target is a group, return it (user clicked on group background)
+  if (targetTag === 'g') {
+    return mouseTarget;
+  }
+
+  // For other elements, walk up to find nearest shape or group
   let target = mouseTarget;
-  while (target && target !== svgRoot && target !== content) {
+  while (target && target !== svgRoot && target !== content && target !== currentLayer) {
     const tagName = target.tagName?.toLowerCase();
-    // If we found a shape element, return it
-    if (tagName && SHAPE_ELEMENTS.includes(tagName)) {
+    if (tagName && (SHAPE_ELEMENTS.includes(tagName) || tagName === 'g')) {
       return target;
     }
-    // Walk up
     target = target.parentNode as SVGElement;
   }
 
-  // If no shape found, return the original target
+  // Fallback to original behavior
   return mouseTarget;
 };
 
@@ -153,41 +163,42 @@ const stylePanel = new SvgeditStylePanel(
 // Apply style/attributes to selected elements
 function applyStyleToSelection(attrs: any): void {
   try {
-    const elems = getSelectedElements();
-    elems.forEach((el: SVGElement) => {
-      // Style attributes
-      if (attrs.fill !== undefined) el.setAttribute('fill', attrs.fill);
-      if (attrs.fillOpacity !== undefined) el.setAttribute('fill-opacity', attrs.fillOpacity.toString());
-      if (attrs.stroke !== undefined) el.setAttribute('stroke', attrs.stroke);
-      if (attrs.strokeWidth !== undefined) el.setAttribute('stroke-width', attrs.strokeWidth.toString());
-      if (attrs.strokeOpacity !== undefined) el.setAttribute('stroke-opacity', attrs.strokeOpacity.toString());
-      if (attrs.fontFamily !== undefined) el.setAttribute('font-family', attrs.fontFamily);
-      if (attrs.fontSize !== undefined) el.setAttribute('font-size', attrs.fontSize.toString());
-      if (attrs.fontWeight !== undefined) el.setAttribute('font-weight', attrs.fontWeight);
-      if (attrs.fontStyle !== undefined) el.setAttribute('font-style', attrs.fontStyle);
-      if (attrs.opacity !== undefined) el.setAttribute('opacity', attrs.opacity.toString());
-      if (attrs.transform !== undefined) el.setAttribute('transform', attrs.transform);
+    // Use canvas.changeSelectedAttribute to trigger 'changed' event
+    // This ensures changes are synced to the text editor
+    if (attrs.fill !== undefined) canvas.changeSelectedAttribute('fill', attrs.fill);
+    if (attrs.fillOpacity !== undefined) canvas.changeSelectedAttribute('fill-opacity', attrs.fillOpacity.toString());
+    if (attrs.stroke !== undefined) canvas.changeSelectedAttribute('stroke', attrs.stroke);
+    if (attrs.strokeWidth !== undefined) canvas.changeSelectedAttribute('stroke-width', attrs.strokeWidth.toString());
+    if (attrs.strokeOpacity !== undefined) canvas.changeSelectedAttribute('stroke-opacity', attrs.strokeOpacity.toString());
+    if (attrs.fontFamily !== undefined) canvas.changeSelectedAttribute('font-family', attrs.fontFamily);
+    if (attrs.fontSize !== undefined) canvas.changeSelectedAttribute('font-size', attrs.fontSize.toString());
+    if (attrs.fontWeight !== undefined) canvas.changeSelectedAttribute('font-weight', attrs.fontWeight);
+    if (attrs.fontStyle !== undefined) canvas.changeSelectedAttribute('font-style', attrs.fontStyle);
+    if (attrs.opacity !== undefined) canvas.changeSelectedAttribute('opacity', attrs.opacity.toString());
+    if (attrs.transform !== undefined) canvas.changeSelectedAttribute('transform', attrs.transform);
 
-      // Position/Size attributes
-      if (attrs.id !== undefined && el.id !== attrs.id) {
-        el.id = attrs.id;
-      }
-      if (attrs.x !== undefined) el.setAttribute('x', attrs.x.toString());
-      if (attrs.y !== undefined) el.setAttribute('y', attrs.y.toString());
-      if (attrs.width !== undefined) el.setAttribute('width', attrs.width.toString());
-      if (attrs.height !== undefined) el.setAttribute('height', attrs.height.toString());
-      if (attrs.cx !== undefined) el.setAttribute('cx', attrs.cx.toString());
-      if (attrs.cy !== undefined) el.setAttribute('cy', attrs.cy.toString());
-      if (attrs.r !== undefined) el.setAttribute('r', attrs.r.toString());
-      if (attrs.rx !== undefined) el.setAttribute('rx', attrs.rx.toString());
-      if (attrs.ry !== undefined) el.setAttribute('ry', attrs.ry.toString());
-      if (attrs.x1 !== undefined) el.setAttribute('x1', attrs.x1.toString());
-      if (attrs.y1 !== undefined) el.setAttribute('y1', attrs.y1.toString());
-      if (attrs.x2 !== undefined) el.setAttribute('x2', attrs.x2.toString());
-      if (attrs.y2 !== undefined) el.setAttribute('y2', attrs.y2.toString());
-      if (attrs.d !== undefined) el.setAttribute('d', attrs.d);
-      if (attrs.points !== undefined) el.setAttribute('points', attrs.points);
-    });
+    // Position/Size attributes
+    if (attrs.id !== undefined) {
+      const elems = getSelectedElements();
+      elems.forEach((el: SVGElement) => {
+        if (el.id !== attrs.id) el.id = attrs.id;
+      });
+    }
+    if (attrs.x !== undefined) canvas.changeSelectedAttribute('x', attrs.x.toString());
+    if (attrs.y !== undefined) canvas.changeSelectedAttribute('y', attrs.y.toString());
+    if (attrs.width !== undefined) canvas.changeSelectedAttribute('width', attrs.width.toString());
+    if (attrs.height !== undefined) canvas.changeSelectedAttribute('height', attrs.height.toString());
+    if (attrs.cx !== undefined) canvas.changeSelectedAttribute('cx', attrs.cx.toString());
+    if (attrs.cy !== undefined) canvas.changeSelectedAttribute('cy', attrs.cy.toString());
+    if (attrs.r !== undefined) canvas.changeSelectedAttribute('r', attrs.r.toString());
+    if (attrs.rx !== undefined) canvas.changeSelectedAttribute('rx', attrs.rx.toString());
+    if (attrs.ry !== undefined) canvas.changeSelectedAttribute('ry', attrs.ry.toString());
+    if (attrs.x1 !== undefined) canvas.changeSelectedAttribute('x1', attrs.x1.toString());
+    if (attrs.y1 !== undefined) canvas.changeSelectedAttribute('y1', attrs.y1.toString());
+    if (attrs.x2 !== undefined) canvas.changeSelectedAttribute('x2', attrs.x2.toString());
+    if (attrs.y2 !== undefined) canvas.changeSelectedAttribute('y2', attrs.y2.toString());
+    if (attrs.d !== undefined) canvas.changeSelectedAttribute('d', attrs.d);
+    if (attrs.points !== undefined) canvas.changeSelectedAttribute('points', attrs.points);
   } catch (error) {
     logger.error('Failed to apply attributes to selection', error);
   }
@@ -292,7 +303,8 @@ function handleOperation(op: Operation): void {
         const cy = bbox.y + bbox.height / 2;
         const currentTransform = el.getAttribute('transform') || '';
         const cleaned = currentTransform.replace(/\s*rotate\([^)]*\)\s*/g, ' ').trim();
-        el.setAttribute('transform', (cleaned + ' rotate(90, ' + cx + ', ' + cy + ')').trim());
+        const newTransform = (cleaned + ' rotate(90, ' + cx + ', ' + cy + ')').trim();
+        canvas.changeSelectedAttribute('transform', newTransform, [el]);
       });
       break;
     }
@@ -304,33 +316,36 @@ function handleOperation(op: Operation): void {
         const cy = bbox.y + bbox.height / 2;
         const currentTransform = el.getAttribute('transform') || '';
         const cleaned = currentTransform.replace(/\s*rotate\([^)]*\)\s*/g, ' ').trim();
-        el.setAttribute('transform', (cleaned + ' rotate(-90, ' + cx + ', ' + cy + ')').trim());
+        const newTransform = (cleaned + ' rotate(-90, ' + cx + ', ' + cy + ')').trim();
+        canvas.changeSelectedAttribute('transform', newTransform, [el]);
       });
       break;
     }
     case 'rotateClockwiseByTheAngleStep': {
       const elems = getSelectedElements();
-      const step = configuration.indentSize || 15;
+      const step = 15;
       elems.forEach((el: SVGGraphicsElement) => {
         const bbox = el.getBBox();
         const cx = bbox.x + bbox.width / 2;
         const cy = bbox.y + bbox.height / 2;
         const currentTransform = el.getAttribute('transform') || '';
         const cleaned = currentTransform.replace(/\s*rotate\([^)]*\)\s*/g, ' ').trim();
-        el.setAttribute('transform', (cleaned + ' rotate(' + step + ', ' + cx + ', ' + cy + ')').trim());
+        const newTransform = (cleaned + ' rotate(' + step + ', ' + cx + ', ' + cy + ')').trim();
+        canvas.changeSelectedAttribute('transform', newTransform, [el]);
       });
       break;
     }
     case 'rotateCounterclockwiseByTheAngleStep': {
       const elems = getSelectedElements();
-      const step = configuration.indentSize || 15;
+      const step = 15;
       elems.forEach((el: SVGGraphicsElement) => {
         const bbox = el.getBBox();
         const cx = bbox.x + bbox.width / 2;
         const cy = bbox.y + bbox.height / 2;
         const currentTransform = el.getAttribute('transform') || '';
         const cleaned = currentTransform.replace(/\s*rotate\([^)]*\)\s*/g, ' ').trim();
-        el.setAttribute('transform', (cleaned + ' rotate(-' + step + ', ' + cx + ', ' + cy + ')').trim());
+        const newTransform = (cleaned + ' rotate(-' + step + ', ' + cx + ', ' + cy + ')').trim();
+        canvas.changeSelectedAttribute('transform', newTransform, [el]);
       });
       break;
     }
@@ -347,6 +362,35 @@ function handleOperation(op: Operation): void {
     case 'objectToPath':
       canvas.setMode('pathedit');
       break;
+    case 'polygonToRect': {
+      const elems = getSelectedElements();
+      let svgString = canvas.getSvgString();
+      let modified = false;
+
+      elems.forEach((el: SVGGraphicsElement) => {
+        if (el.tagName !== 'polygon' && el.tagName !== 'polyline') return;
+
+        const pointsStr = el.getAttribute('points');
+        if (!pointsStr) return;
+
+        const result = convertPolygonToRect(svgString, pointsStr);
+        if (result.replaced) {
+          svgString = result.svg;
+          modified = true;
+        }
+      });
+
+      if (modified) {
+        const scrollPos = { x: body.scrollLeft, y: body.scrollTop };
+        const zoomLevel = canvas.getZoom();
+        canvas.setSvgString(svgString);
+        body.scrollLeft = scrollPos.x;
+        body.scrollTop = scrollPos.y;
+        canvas.setZoom(zoomLevel);
+        sendSvgUpdate();
+      }
+      break;
+    }
     }
   } catch (error) {
     logger.error(`Failed to execute operation: ${op}`, error);
@@ -357,29 +401,57 @@ function handleOperation(op: Operation): void {
   }
 }
 
-// Debounced change notification: SVG Edit -> VS Code
-const notifyChange = debounce(() => {
+// Function to send SVG update to VS Code
+function sendSvgUpdate() {
   try {
+    if (isInternalChange) return;
     const svgString = canvas.getSvgString();
     const sanitized = sanitizeSvgForEditor(svgString);
-    if (sanitized !== currentSvgString) {
-      currentSvgString = sanitized;
-      vscode.postMessage({
-        command: 'modified',
-        data: sanitized
-      });
-    }
+
+    // Only send if content actually changed
+    if (sanitized === currentSvgString) return;
+
+    currentSvgString = sanitized;
+    logger.info('Sending SVG update to VS Code', { length: sanitized.length });
+    vscode.postMessage({
+      command: 'modified',
+      data: sanitized
+    });
+
     // Update style panel from selection using idle callback
     requestIdleCallback(() => {
       stylePanel.updateFromSelection();
     });
   } catch (error) {
-    logger.error('Failed to process canvas change', error);
+    logger.error('Failed to send SVG update', error);
   }
-}, 100);
+}
 
+// Debounced version for frequent events
+const notifyChange = debounce(sendSvgUpdate, 150);
+
+// Listen for canvas changes
 canvas.bind('changed', () => {
-  if (isInternalChange) return;
+  logger.debug('Canvas changed event fired');
+  notifyChange();
+});
+
+// Listen for mouseUp to catch drawing operations
+canvas.bind('mouseup', () => {
+  logger.debug('mouseup event fired');
+  // Use immediate version for mouseup to ensure we catch the change
+  sendSvgUpdate();
+});
+
+// Listen for ext_mouseUp (svgcanvas specific event)
+canvas.bind('ext_mouseUp', () => {
+  logger.debug('ext_mouseUp event fired');
+  sendSvgUpdate();
+});
+
+// Listen for transition event (fires after element transformations)
+canvas.bind('transition', () => {
+  logger.debug('transition event fired');
   notifyChange();
 });
 
@@ -392,13 +464,27 @@ canvas.bind('selectedChanged', (window: any, elems: SVGElement[]) => {
     // Notify VS Code of selection change
     if (elems && elems.length > 0) {
       const el = elems[0];
+      const data: any = {
+        elementId: el.id || null,
+        tagName: el.tagName,
+        attributes: getElementAttributes(el)
+      };
+
+      // For elements without ID, compute global tag index
+      if (!el.id) {
+        const svgContent = canvas.getSvgContent();
+        const all = svgContent.querySelectorAll(el.tagName);
+        for (let i = 0; i < all.length; i++) {
+          if (all[i] === el) {
+            data.tagIndex = i;
+            break;
+          }
+        }
+      }
+
       vscode.postMessage({
         command: 'selectionChanged',
-        data: {
-          elementId: el.id || null,
-          tagName: el.tagName,
-          attributes: getElementAttributes(el)
-        }
+        data: data
       });
     } else {
       vscode.postMessage({
@@ -481,13 +567,24 @@ window.addEventListener('message', (event) => {
 
     case 'selectElement': {
       // Select element on canvas from text editor
-      if (message.data && message.data.elementId) {
-        const svgContent = canvas.getSvgContent();
-        const el = svgContent.querySelector(`#${message.data.elementId}`);
-        if (el) {
-          canvas.clearSelection();
-          canvas.selectOnly([el as SVGElement], true);
+      if (!message.data) break;
+      const svgContent = canvas.getSvgContent();
+
+      let target: Element | null = null;
+      if (message.data.elementId) {
+        target = svgContent.querySelector(`#${message.data.elementId}`);
+      } else if (message.data.tagName && message.data.tagIndex !== undefined) {
+        // Find nth element of given tag type
+        const all = svgContent.querySelectorAll(message.data.tagName);
+        const idx = message.data.tagIndex;
+        if (idx < all.length) {
+          target = all[idx];
         }
+      }
+
+      if (target) {
+        canvas.clearSelection();
+        canvas.selectOnly([target as SVGElement], true);
       }
       break;
     }
