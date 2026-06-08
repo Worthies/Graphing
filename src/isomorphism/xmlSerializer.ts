@@ -20,9 +20,17 @@ export function serializeXml(xml: XmlNodeNop, options: LinearOptions): string {
         return `${indent(0)}<![CDATA[${eol}${indent(1)}${xml.text}${eol}${indent(0)}]]>`;
         case "element":
         const head = [xml.tag, ...Object.entries(xml.attrs).map(([key, value]) => `${key}="${value}"`)];
-        return indent(0) + ((xml.children.length !== 0) ?
-                `<${head.join(" ")}>${eol}${serializeXmls(xml.children, indentLevelUp(options))}${eol}${indent(0)}</${xml.tag}>` :
-                `<${head.join(" ")}/>`);
+        if (xml.children.length === 0) {
+            return indent(0) + `<${head.join(" ")}/>`;
+        }
+        // Check if element contains only text content (no element children)
+        const hasOnlyText = xml.children.every(child => child.type === "text");
+        if (hasOnlyText) {
+            // Keep inline for text-only content (e.g., <title>, <text>, <tspan>)
+            const textContent = xml.children.map(child => (child as any).text).join("");
+            return indent(0) + `<${head.join(" ")}>${textContent}</${xml.tag}>`;
+        }
+        return indent(0) + `<${head.join(" ")}>${eol}${serializeXmls(xml.children, indentLevelUp(options))}${eol}${indent(0)}</${xml.tag}>`;
     }
 }
 

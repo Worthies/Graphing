@@ -19,7 +19,13 @@ import {
     SymbolKind,
     DocumentSymbolParams,
     DocumentFormattingParams,
-    TextEdit
+    TextEdit,
+    DocumentColorParams,
+    ColorInformation,
+    ColorPresentationParams,
+    ColorPresentation,
+    SemanticTokensParams,
+    SemanticTokens
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { textToXml, XmlElement, XmlNode, XmlNodeNop } from "../isomorphism/xmlParser";
@@ -53,7 +59,26 @@ connection.onInitialize(function (params: InitializeParams): InitializeResult {
             completionProvider: { triggerCharacters: ["<", " ", '"'] },
             hoverProvider: true,
             documentSymbolProvider: true,
-            documentFormattingProvider: true
+            documentFormattingProvider: true,
+            colorProvider: true,
+            semanticTokensProvider: {
+                legend: {
+                    tokenTypes: [
+                        "namespace", "type", "class", "enum", "interface",
+                        "struct", "typeParameter", "parameter", "variable",
+                        "property", "enumMember", "event", "function", "method",
+                        "macro", "keyword", "modifier", "comment", "string",
+                        "number", "regexp", "operator", "decorator"
+                    ],
+                    tokenModifiers: [
+                        "declaration", "definition", "readonly", "static",
+                        "deprecated", "abstract", "async", "modification",
+                        "documentation", "defaultLibrary"
+                    ]
+                },
+                full: true,
+                range: true
+            }
         }
     };
 });
@@ -365,7 +390,7 @@ connection.onDocumentSymbol(function (params: DocumentSymbolParams): DocumentSym
 
 // --- Document Formatting: pretty-print SVG source ---
 
-// Strip whitespace-only text nodes from XML tree to avoid double newlines during formatting
+// Strip whitespace-only text nodes and trim leading/trailing whitespace from text content
 function stripWhitespaceNodes(nodes: XmlNode[]): XmlNode[] {
     var result: XmlNode[] = [];
     for (var i = 0; i < nodes.length; i++) {
@@ -373,7 +398,13 @@ function stripWhitespaceNodes(nodes: XmlNode[]): XmlNode[] {
         if (node.type === "text") {
             // Skip text nodes that are only whitespace
             if (node.text.trim().length === 0) continue;
-            result.push(node);
+            // Trim leading/trailing whitespace from text content
+            var trimmed = node.text.trim();
+            var trimmedNode: any = { type: "text", tag: "text()", text: trimmed };
+            if (node.interval) {
+                trimmedNode.interval = node.interval;
+            }
+            result.push(trimmedNode);
         } else if (node.type === "element") {
             // Recursively clean children
             var elem = node as XmlElement;
@@ -426,6 +457,281 @@ connection.onDocumentFormatting(function (params: DocumentFormattingParams): Tex
         range: Range.create(0, 0, lastLine, lastCol),
         newText: formatted
     }];
+});
+
+// --- Document Color: provide inline color swatches ---
+
+// SVG attributes that accept color values
+var colorAttributes = [
+    "fill", "stroke", "stop-color", "flood-color", "lighting-color",
+    "color", "background-color"
+];
+
+// Parse hex color string to RGBA (0-1 range)
+function parseHexColor(hex: string): { r: number; g: number; b: number; a: number } | null {
+    hex = hex.replace(/^#/, "");
+    var r: number, g: number, b: number, a: number;
+
+    if (hex.length === 3) {
+        r = parseInt(hex.charAt(0) + hex.charAt(0), 16) / 255;
+        g = parseInt(hex.charAt(1) + hex.charAt(1), 16) / 255;
+        b = parseInt(hex.charAt(2) + hex.charAt(2), 16) / 255;
+        a = 1;
+    } else if (hex.length === 4) {
+        r = parseInt(hex.charAt(0) + hex.charAt(0), 16) / 255;
+        g = parseInt(hex.charAt(1) + hex.charAt(1), 16) / 255;
+        b = parseInt(hex.charAt(2) + hex.charAt(2), 16) / 255;
+        a = parseInt(hex.charAt(3) + hex.charAt(3), 16) / 255;
+    } else if (hex.length === 6) {
+        r = parseInt(hex.substring(0, 2), 16) / 255;
+        g = parseInt(hex.substring(2, 4), 16) / 255;
+        b = parseInt(hex.substring(4, 6), 16) / 255;
+        a = 1;
+    } else if (hex.length === 8) {
+        r = parseInt(hex.substring(0, 2), 16) / 255;
+        g = parseInt(hex.substring(2, 4), 16) / 255;
+        b = parseInt(hex.substring(4, 6), 16) / 255;
+        a = parseInt(hex.substring(6, 8), 16) / 255;
+    } else {
+        return null;
+    }
+
+    return { r: r, g: g, b: b, a: a };
+}
+
+// Parse rgb/rgba color string to RGBA (0-1 range)
+function parseRgbColor(value: string): { r: number; g: number; b: number; a: number } | null {
+    var match = value.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/);
+    if (!match) return null;
+
+    var r = parseInt(match[1]) / 255;
+    var g = parseInt(match[2]) / 255;
+    var b = parseInt(match[3]) / 255;
+    var a = match[4] !== undefined ? parseFloat(match[4]) : 1;
+
+    return { r: r, g: g, b: b, a: a };
+}
+
+// Parse any color string to RGBA
+function parseColor(value: string): { r: number; g: number; b: number; a: number } | null {
+    value = value.trim();
+    if (value.charAt(0) === "#") {
+        return parseHexColor(value);
+    }
+    if (value.indexOf("rgb") === 0) {
+        return parseRgbColor(value);
+    }
+    return null;
+}
+
+connection.onDocumentColor(function (params: DocumentColorParams): ColorInformation[] {
+    var doc = documents.get(params.textDocument.uri);
+    if (!doc) return [];
+
+    var text = doc.getText();
+    var colors: ColorInformation[] = [];
+
+    // Regex to find color attribute values in SVG
+    // Matches: fill="#ff0000", stroke="rgb(255,0,0)", stop-color="#abc", etc.
+    var attrPattern = /\b(fill|stroke|stop-color|flood-color|lighting-color|color)\s*=\s*"([^"]*)"/gi;
+    var attrMatch: RegExpExecArray | null;
+
+    while ((attrMatch = attrPattern.exec(text)) !== null) {
+        var attrName = attrMatch[1];
+        var attrValue = attrMatch[2];
+
+        // Skip "none", "currentColor", "inherit", url() references
+        if (attrValue === "none" || attrValue === "currentColor" || attrValue === "inherit" ||
+            attrValue.indexOf("url(") !== -1) {
+            continue;
+        }
+
+        var parsedColor = parseColor(attrValue);
+        if (!parsedColor) continue;
+
+        // Calculate the range of the color value (excluding quotes)
+        var valueStart = attrMatch.index + attrMatch[0].indexOf(attrValue);
+
+        var startLines = text.slice(0, valueStart).split(/\r?\n/);
+        var startLine = startLines.length - 1;
+        var startCol = startLines[startLine].length;
+
+        var endPos = valueStart + attrValue.length;
+        var endLines = text.slice(0, endPos).split(/\r?\n/);
+        var endLine = endLines.length - 1;
+        var endCol = endLines[endLine].length;
+
+        colors.push({
+            range: Range.create(startLine, startCol, endLine, endCol),
+            color: { red: parsedColor.r, green: parsedColor.g, blue: parsedColor.b, alpha: parsedColor.a }
+        });
+    }
+
+    return colors;
+});
+
+connection.onColorPresentation(function (params: ColorPresentationParams): ColorPresentation[] {
+    var color = params.color;
+    var r = Math.round(color.red * 255);
+    var g = Math.round(color.green * 255);
+    var b = Math.round(color.blue * 255);
+    var a = color.alpha;
+
+    var presentations: ColorPresentation[] = [];
+
+    // Hex format (#RRGGBB or #RRGGBBAA if alpha < 1)
+    if (a < 1) {
+        var aHex = Math.round(a * 255).toString(16);
+        if (aHex.length < 2) aHex = "0" + aHex;
+        presentations.push({
+            label: "#" + toHex(r) + toHex(g) + toHex(b) + aHex
+        });
+    }
+    presentations.push({
+        label: "#" + toHex(r) + toHex(g) + toHex(b)
+    });
+
+    // RGB/RGBA format
+    if (a < 1) {
+        presentations.push({
+            label: "rgba(" + r + ", " + g + ", " + b + ", " + a.toFixed(2) + ")"
+        });
+    }
+    presentations.push({
+        label: "rgb(" + r + ", " + g + ", " + b + ")"
+    });
+
+    return presentations;
+});
+
+function toHex(n: number): string {
+    var hex = n.toString(16);
+    return hex.length < 2 ? "0" + hex : hex;
+}
+
+// --- Semantic Tokens: provide syntax highlighting for SVG ---
+
+// Token types (must match legend order)
+var TOKEN_TYPE_NAMESPACE = 0;
+var TOKEN_TYPE_TYPE = 1;
+var TOKEN_TYPE_PROPERTY = 9;
+var TOKEN_TYPE_STRING = 18;
+var TOKEN_TYPE_NUMBER = 19;
+var TOKEN_TYPE_COMMENT = 17;
+
+// SVG element names (treated as types/namespaces)
+var svgElementNames = [
+    "svg", "g", "defs", "clipPath", "mask", "pattern",
+    "rect", "circle", "ellipse", "line", "polyline", "polygon", "path",
+    "text", "tspan", "textPath", "image", "use", "switch",
+    "linearGradient", "radialGradient", "stop",
+    "filter", "feBlend", "feColorMatrix", "feComponentTransfer",
+    "feComposite", "feConvolveMatrix", "feDiffuseLighting",
+    "feDisplacementMap", "feFlood", "feGaussianBlur", "feImage",
+    "feMerge", "feMergeNode", "feMorphology", "feOffset",
+    "feSpecularLighting", "feTile", "feTurbulence",
+    "animate", "animateTransform", "set",
+    "metadata", "title", "desc", "style", "script", "foreignObject"
+];
+
+connection.languages.semanticTokens.on(function (params: SemanticTokensParams): SemanticTokens {
+    try {
+        var doc = documents.get(params.textDocument.uri);
+        if (!doc) return { data: [] };
+
+        var text = doc.getText();
+        var data: number[] = [];
+
+        // Pre-compute line offsets for efficient position lookup
+        var lineOffsets: number[] = [0];
+        for (var i = 0; i < text.length; i++) {
+            if (text.charAt(i) === "\n") {
+                lineOffsets.push(i + 1);
+            }
+        }
+
+        // Track position for delta encoding
+        var prevLine = 0;
+        var prevChar = 0;
+
+        function pushToken(line: number, char: number, length: number, tokenType: number, tokenModifiers: number): void {
+            var deltaLine = line - prevLine;
+            var deltaChar = (deltaLine === 0) ? char - prevChar : char;
+            data.push(deltaLine, deltaChar, length, tokenType, tokenModifiers);
+            prevLine = line;
+            prevChar = char;
+        }
+
+        function getLineCol(pos: number): { line: number; col: number } {
+            // Binary search for line number
+            var lo = 0, hi = lineOffsets.length - 1;
+            while (lo < hi) {
+                var mid = (lo + hi + 1) >> 1;
+                if (lineOffsets[mid] <= pos) lo = mid;
+                else hi = mid - 1;
+            }
+            return { line: lo, col: pos - lineOffsets[lo] };
+        }
+
+        // Parse XML tags and attributes using regex
+        var tagRegex = /<\/?([a-zA-Z][\w:-]*)((?:\s+[^>]*?)?)(\s*\/?>)/g;
+        var match: RegExpExecArray | null;
+
+        while ((match = tagRegex.exec(text)) !== null) {
+            var fullTag = match[0];
+            var tagName = match[1];
+            var attrs = match[2];
+            var tagStart = match.index;
+            var isClosing = fullTag.charAt(1) === "/";
+
+            // Highlight tag name
+            var nameOffset = isClosing ? 2 : 1;
+            var namePos = tagStart + nameOffset;
+            var nameLoc = getLineCol(namePos);
+            var tokenType = TOKEN_TYPE_TYPE;
+            if (tagName === "svg" || tagName === "g" || tagName === "defs") {
+                tokenType = TOKEN_TYPE_NAMESPACE;
+            }
+            pushToken(nameLoc.line, nameLoc.col, tagName.length, tokenType, 0);
+
+            // Highlight attributes within the tag
+            if (attrs) {
+                var attrRegex = /([a-zA-Z][\w:-]*)\s*=\s*"([^"]*)"/g;
+                var attrMatch: RegExpExecArray | null;
+                var attrsAbsStart = tagStart + 1 + tagName.length;
+
+                while ((attrMatch = attrRegex.exec(attrs)) !== null) {
+                    var attrName = attrMatch[1];
+                    var attrValue = attrMatch[2];
+                    var attrStart = attrsAbsStart + attrMatch.index;
+                    var valueStart = attrStart + attrName.length + attrMatch[0].indexOf(attrValue) - attrMatch.index;
+
+                    var attrNameLoc = getLineCol(attrStart);
+                    pushToken(attrNameLoc.line, attrNameLoc.col, attrName.length, TOKEN_TYPE_PROPERTY, 0);
+
+                    var valueLoc = getLineCol(valueStart);
+                    var valueTokenType = TOKEN_TYPE_STRING;
+                    if (/^-?\d+(\.\d+)?(%|px|em|pt|cm|mm|in|pc|ex)?$/i.test(attrValue)) {
+                        valueTokenType = TOKEN_TYPE_NUMBER;
+                    }
+                    pushToken(valueLoc.line, valueLoc.col, attrValue.length, valueTokenType, 0);
+                }
+            }
+        }
+
+        // Highlight comments
+        var commentRegex = /<!--([\s\S]*?)-->/g;
+        var commentMatch: RegExpExecArray | null;
+        while ((commentMatch = commentRegex.exec(text)) !== null) {
+            var commentLoc = getLineCol(commentMatch.index);
+            pushToken(commentLoc.line, commentLoc.col, commentMatch[0].length, TOKEN_TYPE_COMMENT, 0);
+        }
+
+        return { data: data };
+    } catch (e) {
+        connection.console.error("Semantic tokens error: " + (e instanceof Error ? e.message : String(e)));
+        return { data: [] };
+    }
 });
 
 documents.listen(connection);

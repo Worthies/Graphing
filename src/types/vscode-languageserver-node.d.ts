@@ -10,7 +10,9 @@ declare module "vscode-languageserver/node" {
         TextDocumentPositionParams, Hover, MarkupContent, MarkupKind,
         DocumentSymbol, SymbolKind, DocumentSymbolParams,
         DocumentFormattingParams, TextEdit, FormattingOptions,
-        InitializeOptions
+        InitializeOptions, DocumentColorParams, ColorInformation,
+        ColorPresentationParams, ColorPresentation,
+        SemanticTokensParams, SemanticTokens
     } from "vscode-languageserver";
     import { TextDocument } from "vscode-languageserver-textdocument";
 
@@ -27,14 +29,24 @@ declare module "vscode-languageserver/node" {
         [key: string]: any;
     }
 
+    interface Languages {
+        semanticTokens: {
+            refresh(): void;
+            on(handler: (params: SemanticTokensParams) => SemanticTokens): Disposable;
+        };
+    }
+
     interface Connection extends TextDocumentConnection {
         console: { log(msg: string): void; info(msg: string): void; warn(msg: string): void; error(msg: string): void };
+        languages: Languages;
         onInitialize(handler: (params: InitializeParams) => InitializeResult): void;
         sendDiagnostics(params: { uri: string; diagnostics: Diagnostic[] }): void;
         onCompletion(handler: (params: TextDocumentPositionParams) => CompletionItem[]): void;
         onHover(handler: (params: TextDocumentPositionParams) => Hover | null): void;
         onDocumentSymbol(handler: (params: DocumentSymbolParams) => DocumentSymbol[]): void;
         onDocumentFormatting(handler: (params: DocumentFormattingParams) => TextEdit[]): void;
+        onDocumentColor(handler: (params: DocumentColorParams) => ColorInformation[]): void;
+        onColorPresentation(handler: (params: ColorPresentationParams) => ColorPresentation[]): void;
         listen(): void;
     }
 
@@ -63,7 +75,13 @@ declare module "vscode-languageserver/node" {
         DocumentFormattingParams,
         TextEdit,
         FormattingOptions,
-        InitializeOptions
+        InitializeOptions,
+        DocumentColorParams,
+        ColorInformation,
+        ColorPresentationParams,
+        ColorPresentation,
+        SemanticTokensParams,
+        SemanticTokens
     };
 }
 
