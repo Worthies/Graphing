@@ -570,11 +570,27 @@ export function activate(context: vscode.ExtensionContext) {
         outputChannel.appendLine("Starting SVG Language Server...");
         languageClient.start();
 
-        // Enable outline cursor-following so the outline highlights the element at cursor position
-        var outlineConfig = vscode.workspace.getConfiguration("outline");
-        if (!outlineConfig.get<boolean>("followCursor")) {
-            outlineConfig.update("followCursor", true, vscode.ConfigurationTarget.Global);
-        }
+        // Enable outline cursor-following. outline.followCursor is an internal toggle (not a
+        // config setting), so we must open the outline view first, then toggle it, then restore focus.
+        // Use a flag to avoid toggling it off on subsequent activations in the same session.
+        var outlineFollowEnabled = false;
+        var enableOutlineFollowCursor = function () {
+            if (outlineFollowEnabled) return;
+            outlineFollowEnabled = true;
+            var prevEditor = vscode.window.activeTextEditor;
+            vscode.commands.executeCommand("outline.focus").then(function () {
+                return vscode.commands.executeCommand("outline.followCursor");
+            }).then(function () {
+                if (prevEditor) {
+                    vscode.window.showTextDocument(prevEditor.document, { viewColumn: prevEditor.viewColumn, preserveFocus: false });
+                }
+            }, function (_err: any) {
+                outlineFollowEnabled = false; // reset so it can retry
+                outputChannel.appendLine("outline.followCursor toggle skipped (outline view not ready)");
+            });
+        };
+        // Defer to let the outline view initialize
+        setTimeout(enableOutlineFollowCursor, 1500);
 
         context.subscriptions.push({ dispose: function () { languageClient.stop(); } });
 
