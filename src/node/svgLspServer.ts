@@ -325,6 +325,8 @@ connection.onDocumentSymbol(function (params: DocumentSymbolParams): DocumentSym
     var xml = textToXml(text);
     if (!xml) return [];
 
+    connection.console.log("[DocumentSymbol] called for " + params.textDocument.uri + ", text length=" + text.length);
+
     function toSymbol(elem: XmlElement): DocumentSymbol | null {
         var pos = elem.positions;
         if (!pos) return null;
@@ -385,6 +387,19 @@ connection.onDocumentSymbol(function (params: DocumentSymbolParams): DocumentSym
             if (sym) symbols.push(sym);
         }
     }
+
+    // Log summary for debugging outline sync
+    var totalCount = 0;
+    function countAll(arr: DocumentSymbol[]): void {
+        for (var j = 0; j < arr.length; j++) {
+            totalCount++;
+            if (arr[j].children) { countAll(arr[j].children!); }
+        }
+    }
+    countAll(symbols);
+    connection.console.log("[DocumentSymbol] returned " + totalCount + " symbols, top-level=" + symbols.length +
+        (symbols.length > 0 ? ", first=" + symbols[0].name + " range=(" + symbols[0].range.start.line + "," + symbols[0].range.start.character + ")->(" + symbols[0].range.end.line + "," + symbols[0].range.end.character + ")" : ""));
+
     return symbols;
 });
 

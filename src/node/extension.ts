@@ -570,6 +570,12 @@ export function activate(context: vscode.ExtensionContext) {
         outputChannel.appendLine("Starting SVG Language Server...");
         languageClient.start();
 
+        // Enable outline cursor-following so the outline highlights the element at cursor position
+        var outlineConfig = vscode.workspace.getConfiguration("outline");
+        if (!outlineConfig.get<boolean>("followCursor")) {
+            outlineConfig.update("followCursor", true, vscode.ConfigurationTarget.Global);
+        }
+
         context.subscriptions.push({ dispose: function () { languageClient.stop(); } });
 
         // Register restart LSP server command
