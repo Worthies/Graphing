@@ -585,6 +585,8 @@ window.addEventListener('message', (event) => {
       if (target) {
         canvas.clearSelection();
         canvas.selectOnly([target as SVGElement], true);
+        // Directly update style panel from the target element (bypasses getSelectedElements)
+        stylePanel.updateFromElement(target as SVGElement);
       }
       break;
     }

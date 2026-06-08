@@ -94,6 +94,11 @@ export class SvgeditStylePanel {
     this.updateUI();
   }
 
+  updateFromElement(el: SVGElement): void {
+    this.currentAttributes = this.getAttributesFromElement(el);
+    this.updateUI();
+  }
+
   private getAttributesFromElement(el: SVGElement): ElementAttributes {
     const computed = window.getComputedStyle(el);
     const tagName = el.tagName.toLowerCase();
