@@ -10,6 +10,7 @@ import { textToXml, Interval, trimXml, trimPositions, XmlElement, XmlElementNop 
 import { XmlDiff, jsondiffForXml, xmlJsonDiffToStringDiff } from "../isomorphism/xmlDiffPatch";
 import { LinearOptions } from "../isomorphism/xmlSerializer";
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from "vscode-languageclient/node";
+import { SvgOutlineProvider, SvgOutlineItem } from "./svgOutlineProvider";
 
 // Inline utilities from ../isomorphism/utils to avoid loading incremental-dom at runtime
 function assertNever(x: never): never {
@@ -35,7 +36,7 @@ function iterate<T extends object, R>(obj: T, fn: (key: Extract<keyof T, string>
     return acc;
 }
 
-type PanelSet = { panel: vscode.WebviewPanel, editor: vscode.TextEditor, text: string, blockOnChangeText: boolean, blockSelectionSync: boolean, messageDisposable?: vscode.Disposable };
+type PanelSet = { panel: vscode.WebviewPanel, editor: vscode.TextEditor, text: string, blockOnChangeText: boolean, blockSelectionSyncUntil: number, messageDisposable?: vscode.Disposable };
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -64,6 +65,47 @@ export function activate(context: vscode.ExtensionContext) {
 
     let panelSet: PanelSet | null = null;
 
+    // SVG Outline TreeView with explicit cursor-following
+    var outlineProvider = new SvgOutlineProvider();
+    var outlineTreeView = vscode.window.createTreeView("graphing.svgOutline", { treeDataProvider: outlineProvider });
+    context.subscriptions.push(outlineTreeView);
+
+    // Navigate to element in text editor when outline item is clicked
+    context.subscriptions.push(vscode.commands.registerCommand("graphing.outline.gotoElement", function (item: SvgOutlineItem) {
+        if (!panelSet) return;
+        var iv = item.elem.positions.startTag;
+        var pos = panelSet.editor.document.positionAt(iv.start);
+        panelSet.editor.selection = new vscode.Selection(pos, pos);
+        panelSet.editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+        // Also select the element on the webview canvas (bidirectional sync)
+        var data: any;
+        if (item.elem.attrs.id) {
+            data = { elementId: item.elem.attrs.id };
+        } else {
+            // Compute global tag index for this element
+            var xml = getCachedXml(panelSet.text);
+            if (xml) {
+                var allElements = collectElements(xml);
+                var found = -1;
+                for (var i = 0; i < allElements.length; i++) {
+                    if (allElements[i].elem === item.elem) { found = allElements[i].tagIndex; break; }
+                }
+                data = { tagName: item.tag, tagIndex: found >= 0 ? found : 0 };
+            }
+        }
+        if (data) {
+            panelSet.blockSelectionSyncUntil = Date.now() + 200;
+            panelSet.panel.webview.postMessage({ command: "selectElement", data: data });
+        }
+    }));
+
+    // Reveal outline item when provider signals a selection change (from cursor movement)
+    context.subscriptions.push(outlineProvider.onDidChangeSelection(function (item: SvgOutlineItem | null) {
+        if (item) {
+            outlineTreeView.reveal(item, { select: true, focus: false, expand: true });
+        }
+    }));
+
     let setup = (editor: vscode.TextEditor, oldPanel?: vscode.WebviewPanel) => {
         const config = vscode.workspace.getConfiguration("graphing", editor.document.uri);
         let text = editor.document.getText();
@@ -87,9 +129,12 @@ export function activate(context: vscode.ExtensionContext) {
             return panel;
         })();
         panel.webview.html = replaceMagic(viewer, { bundleJs, css, svgeditCss, icons, uri: editor.document.uri.toString() });
-        panelSet = { panel, editor, text, blockOnChangeText: false, blockSelectionSync: false };
+        panelSet = { panel, editor, text, blockOnChangeText: false, blockSelectionSyncUntil: 0 };
         setListener(panelSet);
         setWebviewActiveContext(oldPanel ? false : true);
+        // Refresh outline tree for the new document
+        var xml = textToXml(text);
+        outlineProvider.refresh(editor.document, xml);
     }
 
     let setListener = (pset: PanelSet) => {
@@ -244,9 +289,10 @@ export function activate(context: vscode.ExtensionContext) {
                         return;
                     case "selectionChanged":
                         // If the selection change originated from the text editor, skip cursor movement
-                        // to avoid a feedback loop (text click → canvas → text cursor jump to tag start)
-                        if (pset.blockSelectionSync) {
-                            pset.blockSelectionSync = false;
+                        // to avoid a feedback loop (text click → canvas → text cursor jump to tag start).
+                        // Canvas fires two events per selectElement (clearSelection + selectOnly),
+                        // so use a time window instead of a boolean flag.
+                        if (Date.now() < pset.blockSelectionSyncUntil) {
                             return;
                         }
                         // Handle selection change from canvas - move cursor to element in text editor
@@ -329,6 +375,9 @@ export function activate(context: vscode.ExtensionContext) {
                 command: "modified",
                 data: panelSet.text
             });
+            // Refresh outline tree
+            var xml = textToXml(panelSet.text);
+            outlineProvider.refresh(e.document, xml);
         }
     }, null, context.subscriptions);
 
@@ -423,11 +472,15 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Block the webview→text-editor selection sync to prevent feedback loop:
         // text editor click → selectElement → canvas selected → selectionChanged → cursor jump
-        panelSet.blockSelectionSync = true;
+        // Use a time window (200ms) because canvas fires two events per selectElement
+        panelSet.blockSelectionSyncUntil = Date.now() + 200;
         panelSet.panel.webview.postMessage({
             command: "selectElement",
             data: data
         });
+
+        // Update outline selection to follow cursor
+        outlineProvider.revealAtPosition(position);
     }, null, context.subscriptions);
 
     vscode.window.onDidChangeActiveTextEditor(editor => {
@@ -578,28 +631,6 @@ export function activate(context: vscode.ExtensionContext) {
 
         outputChannel.appendLine("Starting SVG Language Server...");
         languageClient.start();
-
-        // Enable outline cursor-following. outline.followCursor is an internal toggle (not a
-        // config setting), so we must open the outline view first, then toggle it, then restore focus.
-        // Use a flag to avoid toggling it off on subsequent activations in the same session.
-        var outlineFollowEnabled = false;
-        var enableOutlineFollowCursor = function () {
-            if (outlineFollowEnabled) return;
-            outlineFollowEnabled = true;
-            var prevEditor = vscode.window.activeTextEditor;
-            vscode.commands.executeCommand("outline.focus").then(function () {
-                return vscode.commands.executeCommand("outline.followCursor");
-            }).then(function () {
-                if (prevEditor) {
-                    vscode.window.showTextDocument(prevEditor.document, { viewColumn: prevEditor.viewColumn, preserveFocus: false });
-                }
-            }, function (_err: any) {
-                outlineFollowEnabled = false; // reset so it can retry
-                outputChannel.appendLine("outline.followCursor toggle skipped (outline view not ready)");
-            });
-        };
-        // Defer to let the outline view initialize
-        setTimeout(enableOutlineFollowCursor, 1500);
 
         context.subscriptions.push({ dispose: function () { languageClient.stop(); } });
 

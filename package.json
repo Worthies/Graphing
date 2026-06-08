@@ -32,6 +32,14 @@
   ],
   "main": "./out/node/extension.js",
   "contributes": {
+    "views": {
+      "explorer": [
+        {
+          "id": "graphing.svgOutline",
+          "name": "SVG Outline"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "graphing.openSvgEditor",
