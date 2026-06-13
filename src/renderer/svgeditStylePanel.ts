@@ -69,8 +69,15 @@ export class SvgeditStylePanel {
   private canvas: any;
   private currentAttributes: ElementAttributes = { ...DEFAULT_ATTRIBUTES };
   private onStyleChange: (style: StyleState) => void;
+  private onCanvasResize: ((width: number, height: number) => void) | null = null;
   private inputs: Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> = new Map();
   private panel: HTMLElement | null = null;
+  private canvasWidth: number = 400;
+  private canvasHeight: number = 400;
+  private viewBoxX: number = 0;
+  private viewBoxY: number = 0;
+  private viewBoxW: number = 400;
+  private viewBoxH: number = 400;
 
   constructor(
     container: HTMLElement,
@@ -81,6 +88,32 @@ export class SvgeditStylePanel {
     this.canvas = canvas;
     this.onStyleChange = onStyleChange;
     this.render();
+  }
+
+  private onViewBoxChange: ((viewBox: { x: number; y: number; w: number; h: number }) => void) | null = null;
+
+  setCanvasResizeHandler(handler: (width: number, height: number) => void): void {
+    this.onCanvasResize = handler;
+  }
+
+  setViewBoxChangeHandler(handler: (viewBox: { x: number; y: number; w: number; h: number }) => void): void {
+    this.onViewBoxChange = handler;
+  }
+
+  updateCanvasDimensions(width: number, height: number): void {
+    this.canvasWidth = width;
+    this.canvasHeight = height;
+    this.viewBoxW = width;
+    this.viewBoxH = height;
+    this.rebuildPanel();
+  }
+
+  updateViewBox(x: number, y: number, w: number, h: number): void {
+    this.viewBoxX = x;
+    this.viewBoxY = y;
+    this.viewBoxW = w;
+    this.viewBoxH = h;
+    this.rebuildPanel();
   }
 
   updateFromSelection(): void {
@@ -203,6 +236,20 @@ export class SvgeditStylePanel {
 
     const attrs = this.currentAttributes;
     const tagName = attrs.tagName;
+
+    // Canvas section (always visible)
+    this.panel.appendChild(this.createSection('Canvas', [
+      this.createCanvasNumberControl('Width', this.canvasWidth, 1, 10000, 1),
+      this.createCanvasNumberControl('Height', this.canvasHeight, 1, 10000, 1)
+    ]));
+
+    // ViewBox section (always visible)
+    this.panel.appendChild(this.createSection('ViewBox', [
+      this.createViewBoxNumberControl('Min X', 'viewBoxX', this.viewBoxX, -99999, 99999, 1),
+      this.createViewBoxNumberControl('Min Y', 'viewBoxY', this.viewBoxY, -99999, 99999, 1),
+      this.createViewBoxNumberControl('Width', 'viewBoxW', this.viewBoxW, 1, 99999, 1),
+      this.createViewBoxNumberControl('Height', 'viewBoxH', this.viewBoxH, 1, 99999, 1)
+    ]));
 
     // Element Info section
     this.panel.appendChild(this.createSection('Element', [
@@ -389,6 +436,89 @@ export class SvgeditStylePanel {
     group.appendChild(input);
 
     this.inputs.set(property, input);
+    return group;
+  }
+
+  private createCanvasNumberControl(label: string, value: number, min: number, max: number, step: number): HTMLElement {
+    const group = document.createElement('div');
+    group.style.cssText = 'display: flex; flex-direction: column; gap: 2px; min-width: 60px;';
+
+    const labelEl = document.createElement('label');
+    labelEl.textContent = label;
+    labelEl.style.cssText = 'font-size: 11px; opacity: 0.8;';
+    group.appendChild(labelEl);
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.value = value.toString();
+    input.min = min.toString();
+    input.max = max.toString();
+    input.step = step.toString();
+    input.style.cssText = `
+      width: 100%;
+      height: 24px;
+      border: 1px solid var(--vscode-input-border, #3c3c3c);
+      border-radius: 3px;
+      background: var(--vscode-input-background, #3c3c3c);
+      color: var(--vscode-input-foreground, #cccccc);
+      padding: 0 4px;
+      box-sizing: border-box;
+    `;
+    input.addEventListener('change', () => {
+      const newValue = parseFloat(input.value);
+      if (label === 'Width') {
+        this.canvasWidth = newValue;
+      } else {
+        this.canvasHeight = newValue;
+      }
+      if (this.onCanvasResize) {
+        this.onCanvasResize(this.canvasWidth, this.canvasHeight);
+      }
+    });
+    group.appendChild(input);
+
+    return group;
+  }
+
+  private createViewBoxNumberControl(label: string, property: string, value: number, min: number, max: number, step: number): HTMLElement {
+    const group = document.createElement('div');
+    group.style.cssText = 'display: flex; flex-direction: column; gap: 2px; min-width: 60px;';
+
+    const labelEl = document.createElement('label');
+    labelEl.textContent = label;
+    labelEl.style.cssText = 'font-size: 11px; opacity: 0.8;';
+    group.appendChild(labelEl);
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.value = value.toString();
+    input.min = min.toString();
+    input.max = max.toString();
+    input.step = step.toString();
+    input.style.cssText = `
+      width: 100%;
+      height: 24px;
+      border: 1px solid var(--vscode-input-border, #3c3c3c);
+      border-radius: 3px;
+      background: var(--vscode-input-background, #3c3c3c);
+      color: var(--vscode-input-foreground, #cccccc);
+      padding: 0 4px;
+      box-sizing: border-box;
+    `;
+    input.addEventListener('change', () => {
+      const newValue = parseFloat(input.value);
+      (this as any)[property] = newValue;
+      if (this.onViewBoxChange) {
+        this.onViewBoxChange({
+          x: this.viewBoxX,
+          y: this.viewBoxY,
+          w: this.viewBoxW,
+          h: this.viewBoxH
+        });
+      }
+    });
+    group.appendChild(input);
+
     return group;
   }
 

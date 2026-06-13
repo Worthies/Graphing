@@ -59,9 +59,10 @@ export interface SvgCanvasExtended extends SvgCanvas {
   clearSelection(noCall?: boolean): void;
   selectOnly(elements: SVGElement[], showGrips?: boolean): void;
   getResolution(): { w: number; h: number; zoom?: number };
-  setResolution(w: number, h: number): boolean;
+  setResolution(w: number | 'fit', h: number): boolean;
   getZoom(): number;
   setZoom(zoomLevel: number): void;
+  setCurrentZoom(zoomLevel: number): void;
 
   // Attribute manipulation
   changeSelectedAttribute(attr: string, val: string | number, elems?: SVGElement[]): void;

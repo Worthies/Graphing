@@ -26,7 +26,9 @@ let changeTimeout: number | null = null;
 // Configuration from VS Code settings
 const configuration = {
   indentStyle: 'space' as 'space' | 'tab',
-  indentSize: 4
+  indentSize: 4,
+  canvasWidth: '400px',
+  canvasHeight: '400px'
 };
 
 // Get container element
@@ -37,7 +39,7 @@ const header = document.createElement('header');
 header.id = 'svgedit-toolbar';
 const body = document.createElement('div');
 body.id = 'svgedit-canvas-body';
-body.style.cssText = 'flex: 1; overflow: hidden; position: relative;';
+body.style.cssText = 'flex: 1; overflow: auto; position: relative;';
 const footer = document.createElement('footer');
 footer.id = 'svgedit-style-panel';
 
@@ -80,6 +82,7 @@ try {
 } catch (error) {
   logger.warn('Some extensions failed to register', error);
 }
+
 
 // Override getMouseTarget to select shapes inside groups, but allow group selection too
 const SHAPE_ELEMENTS = ['rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'path', 'text', 'image', 'use'];
@@ -160,6 +163,32 @@ const stylePanel = new SvgeditStylePanel(
   }
 );
 
+// Wire up canvas resize handler
+stylePanel.setCanvasResizeHandler((width: number, height: number) => {
+  canvas.setResolution(width, height);
+  const svgRoot = canvas.getSvgRoot();
+  const svgContent = canvas.getSvgContent();
+  const res = canvas.getResolution();
+  svgRoot.setAttribute('width', String(res.w));
+  svgRoot.setAttribute('height', String(res.h));
+  svgRoot.setAttribute('viewBox', '0 0 ' + res.w + ' ' + res.h);
+  svgRoot.setAttribute('x', '0');
+  svgRoot.setAttribute('y', '0');
+  svgContent.setAttribute('viewBox', '0 0 ' + res.w + ' ' + res.h);
+  resizeCanvasBackground(res.w, res.h);
+  sendSvgUpdate();
+});
+
+// Wire up viewBox change handler
+stylePanel.setViewBoxChangeHandler((viewBox: { x: number; y: number; w: number; h: number }) => {
+  const svgRoot = canvas.getSvgRoot();
+  const svgContent = canvas.getSvgContent();
+  const vb = viewBox.x + ' ' + viewBox.y + ' ' + viewBox.w + ' ' + viewBox.h;
+  svgRoot.setAttribute('viewBox', vb);
+  svgContent.setAttribute('viewBox', vb);
+  sendSvgUpdate();
+});
+
 // Apply style/attributes to selected elements
 function applyStyleToSelection(attrs: any): void {
   try {
@@ -202,6 +231,79 @@ function applyStyleToSelection(attrs: any): void {
   } catch (error) {
     logger.error('Failed to apply attributes to selection', error);
   }
+}
+
+// Resize svgedit's canvasBackground indicator (white box w/ black border) to match the
+// canvas. setResolution only resizes svgContent, leaving canvasBackground at its init size.
+function resizeCanvasBackground(w: number, h: number): void {
+  const bg = document.getElementById('canvasBackground');
+  if (bg) {
+    bg.setAttribute('width', String(w));
+    bg.setAttribute('height', String(h));
+  }
+}
+
+// Apply zoom: updates viewBox via setCurrentZoom and resizes svgroot for scrollbars
+function applyZoom(zoomLevel: number): void {
+  canvas.setCurrentZoom(zoomLevel);
+  const svgRoot = canvas.getSvgRoot();
+  const svgContent = canvas.getSvgContent();
+  const res = canvas.getResolution();
+  svgRoot.setAttribute('width', String(res.w));
+  svgRoot.setAttribute('height', String(res.h));
+  svgRoot.setAttribute('viewBox', '0 0 ' + res.w + ' ' + res.h);
+  svgContent.setAttribute('viewBox', '0 0 ' + res.w + ' ' + res.h);
+}
+
+// Parse dimension string (e.g. "400px", "400", "50%") to a pixel number
+function parseDimension(dim: string): number {
+  var match = dim.match(/^(\d+(?:\.\d+)?)\s*(px|%)?$/);
+  if (!match) return 400;
+  return parseFloat(match[1]);
+}
+
+// Resize canvas to match SVG content or configuration defaults
+function applyCanvasDimensions(): void {
+  var svgContent = canvas.getSvgContent();
+  var wAttr = svgContent.getAttribute('width');
+  var hAttr = svgContent.getAttribute('height');
+  var w: number;
+  var h: number;
+  // If SVG has no explicit size, use configuration
+  if (!wAttr || !hAttr) {
+    w = parseDimension(configuration.canvasWidth);
+    h = parseDimension(configuration.canvasHeight);
+  } else {
+    w = parseFloat(wAttr) || parseDimension(configuration.canvasWidth);
+    h = parseFloat(hAttr) || parseDimension(configuration.canvasHeight);
+  }
+  canvas.setResolution(w, h);
+  // Resize and reposition svgroot so it matches the SVG content exactly
+  var svgRoot = canvas.getSvgRoot();
+  var svgContent = canvas.getSvgContent();
+  var res = canvas.getResolution();
+  svgRoot.setAttribute('width', String(res.w));
+  svgRoot.setAttribute('height', String(res.h));
+  svgRoot.setAttribute('x', '0');
+  svgRoot.setAttribute('y', '0');
+  // Read existing viewBox or default to canvas dimensions
+  var vbAttr = svgContent.getAttribute('viewBox');
+  var vbX = 0, vbY = 0, vbW = res.w, vbH = res.h;
+  if (vbAttr) {
+    var parts = vbAttr.split(/[\s,]+/);
+    if (parts.length === 4) {
+      vbX = parseFloat(parts[0]) || 0;
+      vbY = parseFloat(parts[1]) || 0;
+      vbW = parseFloat(parts[2]) || res.w;
+      vbH = parseFloat(parts[3]) || res.h;
+    }
+  }
+  svgRoot.setAttribute('viewBox', vbX + ' ' + vbY + ' ' + vbW + ' ' + vbH);
+  svgContent.setAttribute('viewBox', vbX + ' ' + vbY + ' ' + vbW + ' ' + vbH);
+  resizeCanvasBackground(res.w, res.h);
+  // Update style panel
+  stylePanel.updateCanvasDimensions(res.w, res.h);
+  stylePanel.updateViewBox(vbX, vbY, vbW, vbH);
 }
 
 // Handle operations from toolbar
@@ -351,12 +453,31 @@ function handleOperation(op: Operation): void {
     }
     case 'zoomIn': {
       const currentZoom = canvas.getZoom();
-      canvas.setZoom(currentZoom * 1.25);
+      applyZoom(currentZoom * 1.25);
       break;
     }
     case 'zoomOut': {
       const currentZoom = canvas.getZoom();
-      canvas.setZoom(currentZoom / 1.25);
+      applyZoom(currentZoom / 1.25);
+      break;
+    }
+    case 'fitCanvasToContent': {
+      canvas.setResolution('fit', 0);
+      // Sync svgroot size to match new content dimensions
+      var svgRoot = canvas.getSvgRoot();
+      var svgContent = canvas.getSvgContent();
+      var res = canvas.getResolution();
+      svgRoot.setAttribute('width', String(res.w));
+      svgRoot.setAttribute('height', String(res.h));
+      svgRoot.setAttribute('viewBox', '0 0 ' + res.w + ' ' + res.h);
+      svgRoot.setAttribute('x', '0');
+      svgRoot.setAttribute('y', '0');
+      svgContent.setAttribute('viewBox', '0 0 ' + res.w + ' ' + res.h);
+      resizeCanvasBackground(res.w, res.h);
+      applyZoom(canvas.getZoom());
+      stylePanel.updateCanvasDimensions(res.w, res.h);
+      stylePanel.updateViewBox(0, 0, res.w, res.h);
+      sendSvgUpdate();
       break;
     }
     case 'objectToPath':
@@ -386,7 +507,7 @@ function handleOperation(op: Operation): void {
         canvas.setSvgString(svgString);
         body.scrollLeft = scrollPos.x;
         body.scrollTop = scrollPos.y;
-        canvas.setZoom(zoomLevel);
+        applyZoom(zoomLevel);
         sendSvgUpdate();
       }
       break;
@@ -543,9 +664,11 @@ window.addEventListener('message', (event) => {
 
             body.scrollLeft = scrollPos.x;
             body.scrollTop = scrollPos.y;
-            canvas.setZoom(zoomLevel);
+            applyCanvasDimensions();
+            applyZoom(zoomLevel);
           } else {
             logger.debug('Applied incremental SVG update', { operations: diffResult.operations.length });
+            applyCanvasDimensions();
           }
 
           currentSvgString = sanitizeSvgForEditor(canvas.getSvgString());
@@ -562,6 +685,14 @@ window.addEventListener('message', (event) => {
       if (message.data.indentSize !== undefined) {
         configuration.indentSize = message.data.indentSize;
       }
+      if (message.data.canvasWidth !== undefined) {
+        configuration.canvasWidth = message.data.canvasWidth;
+      }
+      if (message.data.canvasHeight !== undefined) {
+        configuration.canvasHeight = message.data.canvasHeight;
+      }
+      // Apply canvas dimensions if SVG has no explicit size
+      applyCanvasDimensions();
       break;
     }
 
@@ -610,6 +741,7 @@ window.addEventListener('message', (event) => {
     case 'rotateCounterclockwiseByTheAngleStep':
     case 'zoomIn':
     case 'zoomOut':
+    case 'fitCanvasToContent':
     case 'objectToPath':
       handleOperation(message.command);
       break;

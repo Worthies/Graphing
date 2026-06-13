@@ -26,12 +26,14 @@
   },
   "activationEvents": [
     "onLanguage:svg",
+    "onLanguage:markdown",
     "onCommand:graphing.openSvgEditor",
     "onCommand:graphing.newSvgEditor",
     "onCommand:graphing.restartLspServer"
   ],
   "main": "./out/node/extension.js",
   "contributes": {
+    "markdown.markdownItPlugins": true,
     "views": {
       "explorer": [
         {
@@ -60,6 +62,10 @@
       {
         "command": "graphing.restartLspServer",
         "title": "Graphing: Restart SVG LSP Server"
+      },
+      {
+        "command": "graphing.fitCanvasToContent",
+        "title": "Graphing: Fit Canvas to Content"
       }
     ],
     "menus": {

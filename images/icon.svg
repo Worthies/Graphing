@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="512px" height="512px">
-  <ellipse style="stroke: rgb(0, 0, 0); fill: rgb(165, 207, 244); paint-order: stroke; stroke-width: 0px;" cx="512.341" cy="512.65" rx="512" ry="512"/>
+  <ellipse style="stroke: rgb(30, 131, 223); fill: rgb(30, 131, 223); paint-order: stroke; stroke-width: 0px;" cx="512.341" cy="512.65" rx="512" ry="512"/>
   <g data-name="Scalable Vector Graphics file" transform="matrix(1, 0, 0, 1, 307.950287, 256)">
     <path d="M52.83 427.68v-52h20.44l334.83-.08v84.13A52.24 52.24 0 0 1 355.86 512H105.09a52.25 52.25 0 0 1-52.26-52.24z" opacity="1" data-original="#e7e7e9" fill="#e7e7e9"/>
     <path d="M408.1 366v9.62l-334.83.08H26A26 26 0 0 0 .14 399l.43-183.49a26 26 0 0 1 26-26h26.26l355.27-.07z" opacity="1" data-original="#0c98e5" class="" fill="#0c98e5"/>

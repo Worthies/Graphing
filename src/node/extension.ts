@@ -5,7 +5,7 @@ import { collectSystemFonts } from "./fontFileProcedures";
 import isAbsoluteUrl from "is-absolute-url";
 type OperatorName = "duplicate" | "delete" | "zoomIn" | "zoomOut" | "group" | "ungroup" | "font" | "bringForward" | "sendBackward" |
     "alignLeft" | "alignRight" | "alignBottom" | "alignTop" | "objectToPath" | "rotateClockwise" | "rotateCounterclockwise" | "rotateClockwiseByTheAngleStep" | "rotateCounterclockwiseByTheAngleStep" |
-    "centerHorizontal" | "centerVertical";
+    "centerHorizontal" | "centerVertical" | "fitCanvasToContent";
 import { textToXml, Interval, trimXml, trimPositions, XmlElement, XmlElementNop } from "../isomorphism/xmlParser";
 import { XmlDiff, jsondiffForXml, xmlJsonDiffToStringDiff } from "../isomorphism/xmlDiffPatch";
 import { LinearOptions } from "../isomorphism/xmlSerializer";
@@ -37,6 +37,54 @@ function iterate<T extends object, R>(obj: T, fn: (key: Extract<keyof T, string>
 }
 
 type PanelSet = { panel: vscode.WebviewPanel, editor: vscode.TextEditor, text: string, blockOnChangeText: boolean, blockSelectionSyncUntil: number, messageDisposable?: vscode.Disposable };
+
+// markdown-it plugin: render ```svg code fences and inline <svg> in markdown preview
+export function extendMarkdownIt(md: any) {
+    // Sanitize SVG: strip <script>, event handlers, javascript: URIs
+    function sanitizeSvg(html: string): string {
+        return html
+            .replace(/<script[\s\S]*?<\/script>/gi, "")
+            .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+            .replace(/(href|xlink:href)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, "");
+    }
+
+    // 1. Convert ```svg code fences into rendered HTML
+    md.core.ruler.after("fence", "svg-fence-render", function (state: any) {
+        var tokens = state.tokens;
+        for (var i = 0; i < tokens.length; i++) {
+            if (tokens[i].type === "fence" && tokens[i].info.trim().toLowerCase() === "svg") {
+                tokens[i].type = "html_block";
+                tokens[i].tag = "";
+                tokens[i].children = [];
+            }
+        }
+    });
+
+    // 2. Override html_block renderer to always output SVG content,
+    //    even when markdown-it html option is false (VS Code default)
+    var defaultHtmlBlockRender = md.renderer.rules.html_block || function (tokens: any, idx: number) {
+        return tokens[idx].content;
+    };
+    md.renderer.rules.html_block = function (tokens: any, idx: number, options: any, env: any, self: any) {
+        if (/<svg[\s>]/i.test(tokens[idx].content)) {
+            return sanitizeSvg(tokens[idx].content);
+        }
+        return defaultHtmlBlockRender(tokens, idx, options, env, self);
+    };
+
+    // 3. Override html_inline renderer to always output SVG content
+    var defaultHtmlInlineRender = md.renderer.rules.html_inline || function (tokens: any, idx: number) {
+        return tokens[idx].content;
+    };
+    md.renderer.rules.html_inline = function (tokens: any, idx: number, options: any, env: any, self: any) {
+        if (/<svg[\s>]/i.test(tokens[idx].content)) {
+            return sanitizeSvg(tokens[idx].content);
+        }
+        return defaultHtmlInlineRender(tokens, idx, options, env, self);
+    };
+
+    return md;
+}
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -102,7 +150,12 @@ export function activate(context: vscode.ExtensionContext) {
     // Reveal outline item when provider signals a selection change (from cursor movement)
     context.subscriptions.push(outlineProvider.onDidChangeSelection(function (item: SvgOutlineItem | null) {
         if (item) {
-            outlineTreeView.reveal(item, { select: true, focus: false, expand: true });
+            // Delay reveal to let the tree process pending data changes first
+            setTimeout(function () {
+                outlineTreeView.reveal(item, { select: true, focus: false, expand: true }).then(undefined, function () {
+                    // Suppress "Data tree node not found" errors when tree is still rebuilding
+                });
+            }, 50);
         }
     }));
 
@@ -239,7 +292,9 @@ export function activate(context: vscode.ExtensionContext) {
                                 collectTransform: config.get<boolean>("collectTransformMatrix"),
                                 useStyleAttribute: config.get<boolean>("useStyleAttribute"),
                                 indentStyle: config.get<string>("indentStyle"),
-                                indentSize: config.get<number>("indentSize")
+                                indentSize: config.get<number>("indentSize"),
+                                canvasWidth: config.get<string>("width"),
+                                canvasHeight: config.get<string>("height")
                             }
                         });
                         return;
@@ -603,7 +658,8 @@ export function activate(context: vscode.ExtensionContext) {
         "rotateClockwiseByTheAngleStep",
         "rotateCounterclockwiseByTheAngleStep",
         "centerHorizontal",
-        "centerVertical"
+        "centerVertical",
+        "fitCanvasToContent"
     );
 
     // Start SVG language server
@@ -637,10 +693,14 @@ export function activate(context: vscode.ExtensionContext) {
         // Register restart LSP server command
         context.subscriptions.push(vscode.commands.registerCommand("graphing.restartLspServer", function () {
             outputChannel.appendLine("Restarting SVG Language Server...");
-            languageClient.stop();
-            languageClient.start();
-            outputChannel.appendLine("SVG Language Server restarted.");
-            vscode.window.showInformationMessage("SVG Language Server restarted.");
+            languageClient.stop().then(function () {
+                languageClient.start();
+                outputChannel.appendLine("SVG Language Server restarted.");
+                vscode.window.showInformationMessage("SVG Language Server restarted.");
+            }, function (err: any) {
+                outputChannel.appendLine("Failed to stop SVG Language Server: " + err);
+                vscode.window.showErrorMessage("Failed to restart SVG Language Server.");
+            });
         }));
     } catch (error) {
         outputChannel.appendLine("Failed to start SVG Language Server: " + (error instanceof Error ? error.message : String(error)));

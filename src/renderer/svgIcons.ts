@@ -95,13 +95,13 @@ export const icons: Record<string, string> = {
   </svg>`,
 
   rotateClockwise: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 4C10.5 2.5 8.5 2 6.5 2.5C4 3.1 2 5.5 2 8C2 11 4.5 13.5 7.5 13.5C10 13.5 12 12 13 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-    <path d="M10 4H13V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M13 3A7 7 0 1 0 14.5 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M10 1L13.5 3L10.5 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   </svg>`,
 
   rotateCounterclockwise: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4 4C5.5 2.5 7.5 2 9.5 2.5C12 3.1 14 5.5 14 8C14 11 11.5 13.5 8.5 13.5C6 13.5 4 12 3 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-    <path d="M6 4H3V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M3 3A7 7 0 1 1 1.5 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M6 1L2.5 3L5.5 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   </svg>`,
 
   zoomIn: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -131,6 +131,17 @@ export const icons: Record<string, string> = {
     <polygon points="3,4 13,3 14,12 2,13" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 2"/>
     <rect x="2" y="3" width="12" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
     <path d="M8 1L8 3M8 13L8 15" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+  </svg>`,
+
+  objectToPath: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="3" width="12" height="10" rx="1" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/>
+    <path d="M2 13C4 9 6 5 8 5C10 5 12 9 14 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>`,
+
+  fitCanvasToContent: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="1" y="1" width="14" height="14" rx="1" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/>
+    <rect x="3" y="3" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M1 5L3 3M11 3L13 1M13 11L11 13M3 13L1 11" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
   </svg>`
 };
 
