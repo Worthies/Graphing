@@ -34,6 +34,7 @@ export interface SvgCanvasExtended extends SvgCanvas {
   cloneSelectedElements(count?: number): void;
   deleteSelectedElements(): void;
   moveUpDownSelected(dir: 'Up' | 'Down'): void;
+  moveSelectedElements(dx: number | number[], dy: number | number[], undoable?: boolean): void;
 
   // Alignment
   alignSelectedElements(dir: string, relativeTo?: string): void;
@@ -58,6 +59,7 @@ export interface SvgCanvasExtended extends SvgCanvas {
   setSvgString(xmlString: string, preventUndo?: boolean): boolean;
   clearSelection(noCall?: boolean): void;
   selectOnly(elements: SVGElement[], showGrips?: boolean): void;
+  selectAllInCurrentLayer(): void;
   getResolution(): { w: number; h: number; zoom?: number };
   setResolution(w: number | 'fit', h: number): boolean;
   getZoom(): number;

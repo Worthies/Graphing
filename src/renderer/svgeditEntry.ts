@@ -97,6 +97,11 @@ const SHAPE_ELEMENTS = ['rect', 'circle', 'ellipse', 'line', 'polyline', 'polygo
     mouseTarget = (mouseTarget as any).correspondingUseElement;
   }
 
+  // Never select canvasBackground or its children
+  if (mouseTarget.id === 'canvasBackground' || mouseTarget.closest?.('#canvasBackground')) {
+    return canvas.getSvgRoot();
+  }
+
   // Get the canvas boundaries
   const svgRoot = canvas.getSvgRoot();
   const container = (canvas as any).getDOMContainer();
@@ -160,22 +165,24 @@ const stylePanel = new SvgeditStylePanel(
   canvas,
   (style: StyleState) => {
     applyStyleToSelection(style);
+    sendSvgUpdate();
   }
 );
 
 // Wire up canvas resize handler
 stylePanel.setCanvasResizeHandler((width: number, height: number) => {
   canvas.setResolution(width, height);
+  // Use the explicit target dimensions (not getResolution, which divides by zoom and can
+  // return a scaled/stale value) so svgroot, svgContent and canvasBackground stay in sync.
   const svgRoot = canvas.getSvgRoot();
   const svgContent = canvas.getSvgContent();
-  const res = canvas.getResolution();
-  svgRoot.setAttribute('width', String(res.w));
-  svgRoot.setAttribute('height', String(res.h));
-  svgRoot.setAttribute('viewBox', '0 0 ' + res.w + ' ' + res.h);
+  svgRoot.setAttribute('width', String(width));
+  svgRoot.setAttribute('height', String(height));
+  svgRoot.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
   svgRoot.setAttribute('x', '0');
   svgRoot.setAttribute('y', '0');
-  svgContent.setAttribute('viewBox', '0 0 ' + res.w + ' ' + res.h);
-  resizeCanvasBackground(res.w, res.h);
+  svgContent.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+  resizeCanvasBackground(width, height);
   sendSvgUpdate();
 });
 
@@ -235,11 +242,20 @@ function applyStyleToSelection(attrs: any): void {
 
 // Resize svgedit's canvasBackground indicator (white box w/ black border) to match the
 // canvas. setResolution only resizes svgContent, leaving canvasBackground at its init size.
+// svgedit's updateCanvas also offsets the bg via x/y for centering, so we reset those to 0
+// and size the inner rect explicitly (it defaults to 100% but nested-svg viewports can
+// retain a stale larger size when shrinking).
 function resizeCanvasBackground(w: number, h: number): void {
   const bg = document.getElementById('canvasBackground');
-  if (bg) {
-    bg.setAttribute('width', String(w));
-    bg.setAttribute('height', String(h));
+  if (!bg) return;
+  bg.setAttribute('width', String(w));
+  bg.setAttribute('height', String(h));
+  bg.setAttribute('x', '0');
+  bg.setAttribute('y', '0');
+  const rect = bg.querySelector('rect');
+  if (rect) {
+    rect.setAttribute('width', String(w));
+    rect.setAttribute('height', String(h));
   }
 }
 
@@ -512,6 +528,45 @@ function handleOperation(op: Operation): void {
       }
       break;
     }
+    case 'copyAsPng': {
+      const svgString = canvas.getSvgString();
+      const res = canvas.getResolution();
+      const w = res.w || 400;
+      const h = res.h || 400;
+      const scale = 2; // 2x for retina quality
+      const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = function () {
+        const c = document.createElement('canvas');
+        c.width = w * scale;
+        c.height = h * scale;
+        const ctx = c.getContext('2d');
+        if (ctx) {
+          ctx.scale(scale, scale);
+          ctx.drawImage(img, 0, 0, w, h);
+          c.toBlob(function (pngBlob) {
+            if (pngBlob) {
+              const ClipboardItemCtor = (window as any).ClipboardItem;
+              const clip = (navigator as any).clipboard;
+              if (ClipboardItemCtor && clip && clip.write) {
+                clip.write([
+                  new ClipboardItemCtor({ 'image/png': pngBlob })
+                ]).then(undefined, function () {
+                  logger.error('Failed to copy PNG to clipboard');
+                });
+              }
+            }
+          }, 'image/png');
+        }
+        URL.revokeObjectURL(url);
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+      break;
+    }
     }
   } catch (error) {
     logger.error(`Failed to execute operation: ${op}`, error);
@@ -616,6 +671,42 @@ canvas.bind('selected', (window: any, elems: SVGElement[]) => {
   } catch (error) {
     logger.error('Failed to handle selection change', error);
   }
+});
+
+// Keyboard shortcut handler
+document.addEventListener('keydown', (e: KeyboardEvent) => {
+  // Ignore when typing in inputs (e.g. attributes panel)
+  const target = e.target as HTMLElement;
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) {
+    return;
+  }
+
+  // Cmd/Ctrl+A: select all shapes in current layer (excluding canvasBackground)
+  if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+    e.preventDefault();
+    canvas.selectAllInCurrentLayer();
+    return;
+  }
+
+  // Arrow key nudging — always preventDefault so VS Code text editor
+  // doesn't steal focus when the SVG canvas is focused
+  const dirMap: Record<string, [number, number]> = {
+    ArrowLeft: [-1, 0],
+    ArrowRight: [1, 0],
+    ArrowUp: [0, -1],
+    ArrowDown: [0, 1]
+  };
+  const dir = dirMap[e.key];
+  if (!dir) return;
+
+  e.preventDefault();
+  if (getSelectedElements().length === 0) return;
+
+  const step = e.shiftKey ? 10 : 1;
+  const zoom = canvas.getZoom();
+  // moveSelectedElements divides scalar deltas by zoom, so multiply to move in user units
+  canvas.moveSelectedElements(dir[0] * step * zoom, dir[1] * step * zoom, true);
+  sendSvgUpdate();
 });
 
 // Get element attributes for properties panel

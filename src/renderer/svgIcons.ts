@@ -142,6 +142,13 @@ export const icons: Record<string, string> = {
     <rect x="1" y="1" width="14" height="14" rx="1" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/>
     <rect x="3" y="3" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
     <path d="M1 5L3 3M11 3L13 1M13 11L11 13M3 13L1 11" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+  </svg>`,
+
+  copyAsPng: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="2" width="9" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M5 12V13C5 13.5 5.5 14 6 14H12C12.5 14 13 13.5 13 13V5C13 4.5 12.5 4 12 4H11" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M11 7L14 7M14 7L14 4M14 7L12.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M4 8L6 10L8 7L10 10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>`
 };
 
