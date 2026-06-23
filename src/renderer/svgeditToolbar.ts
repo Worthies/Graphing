@@ -13,7 +13,7 @@ export type Operation = 'delete' | 'duplicate' | 'group' | 'ungroup' | 'bringFor
   'rotateClockwiseByTheAngleStep' | 'rotateCounterclockwiseByTheAngleStep' |
   'zoomIn' | 'zoomOut' | 'objectToPath' |
   'centerVertical' | 'centerHorizontal' |
-  'polygonToRect' | 'fitCanvasToContent' | 'copyAsPng';
+  'polygonToRect' | 'fitCanvasToContent' | 'copyAsPng' | 'toggleBackground';
 
 interface ToolbarButton {
   id: string;
@@ -58,7 +58,8 @@ const operationButtons: ToolbarButton[] = [
   { id: 'separator4', label: '', title: '' },
   { id: 'polygonToRect', label: 'To Rect', title: 'Convert Polygon to Rectangle', codicon: 'symbol-square', operation: 'polygonToRect' },
   { id: 'fitCanvasToContent', label: 'Fit Canvas', title: 'Fit Canvas to Content', codicon: 'screen-full', operation: 'fitCanvasToContent' },
-  { id: 'copyAsPng', label: 'Copy PNG', title: 'Copy as PNG to Clipboard', codicon: 'clippy', operation: 'copyAsPng' }
+  { id: 'copyAsPng', label: 'Copy PNG', title: 'Copy as PNG to Clipboard', codicon: 'clippy', operation: 'copyAsPng' },
+  { id: 'toggleBackground', label: 'BG', title: 'Toggle Background Color', codicon: 'color-mode', operation: 'toggleBackground' }
 ];
 
 export class SvgeditToolbar {

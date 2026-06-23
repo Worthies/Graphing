@@ -190,6 +190,90 @@ export function activate(context: vscode.ExtensionContext) {
         outlineProvider.refresh(editor.document, xml);
     }
 
+    const SVGEDIT_AUTO_ID_RE = /^svg_\d+$/;
+    const SVGEDIT_INTERNAL_ATTRS = new Set([
+        'data-id', 'data-editable', 'data-lock', 'data-xmlns',
+        'se:connector', 'se:nonce', 'style'
+    ]);
+
+    function findElementPositionInSource(
+        text: string,
+        tagName: string | undefined,
+        elementId: string | null,
+        canvasAttrs: Record<string, string>,
+        xml: XmlElement | null
+    ): number {
+        if (!xml || !tagName) return -1;
+
+        // Strategy 1: ID exists in source text (skip svgedit auto-generated IDs)
+        if (elementId && !SVGEDIT_AUTO_ID_RE.test(elementId)) {
+            const found = findByAttr(xml, 'id', elementId);
+            if (found) return found.positions.openElement.start;
+        }
+
+        // Strategy 2: attribute signature matching against parsed XML tree
+        const candidates = collectByTag(xml, tagName);
+        if (candidates.length === 0) return -1;
+        if (candidates.length === 1) return candidates[0].positions.openElement.start;
+
+        // Build a filtered attribute set (skip svgedit internals and auto-IDs)
+        const sigAttrs: Record<string, string> = {};
+        for (const key in canvasAttrs) {
+            if (SVGEDIT_INTERNAL_ATTRS.has(key)) continue;
+            if (key === 'id' && SVGEDIT_AUTO_ID_RE.test(canvasAttrs[key])) continue;
+            if (key.indexOf('se:') === 0) continue;
+            sigAttrs[key] = canvasAttrs[key];
+        }
+
+        let bestMatch: XmlElement | null = null;
+        let bestScore = -1;
+        for (const cand of candidates) {
+            let score = 0;
+            let misses = 0;
+            for (const key in sigAttrs) {
+                if (cand.attrs[key] !== undefined) {
+                    if (cand.attrs[key] === sigAttrs[key]) {
+                        score += 2;
+                    } else {
+                        score += 1;
+                        misses++;
+                    }
+                }
+            }
+            // Penalize candidates with many extra attributes not in canvas
+            if (score > bestScore || (score === bestScore && misses < (bestMatch ? Object.keys(bestMatch.attrs).length : Infinity))) {
+                bestScore = score;
+                bestMatch = cand;
+            }
+        }
+
+        if (bestMatch && bestScore > 0) return bestMatch.positions.openElement.start;
+        return -1;
+    }
+
+    function findByAttr(node: XmlElement, attr: string, value: string): XmlElement | null {
+        if (node.attrs[attr] === value) return node;
+        for (const child of node.children) {
+            if (child.type === 'element') {
+                const found = findByAttr(child as XmlElement, attr, value);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+
+    function collectByTag(node: XmlElement, tag: string): XmlElement[] {
+        const result: XmlElement[] = [];
+        function walk(n: XmlElement): void {
+            if (n.tag === tag) result.push(n);
+            for (const child of n.children) {
+                if (child.type === 'element') walk(child as XmlElement);
+            }
+        }
+        walk(node);
+        return result;
+    }
+
     let setListener = (pset: PanelSet) => {
         // Dispose previous message handler to prevent duplicates
         if (pset.messageDisposable) {
@@ -343,48 +427,19 @@ export function activate(context: vscode.ExtensionContext) {
                         }
                         return;
                     case "selectionChanged":
-                        // If the selection change originated from the text editor, skip cursor movement
-                        // to avoid a feedback loop (text click → canvas → text cursor jump to tag start).
-                        // Canvas fires two events per selectElement (clearSelection + selectOnly),
-                        // so use a time window instead of a boolean flag.
                         if (Date.now() < pset.blockSelectionSyncUntil) {
                             return;
                         }
-                        // Handle selection change from canvas - move cursor to element in text editor
                         if (message.data) {
-                            const text = pset.text;
-                            let tagStart = -1;
-
-                            if (message.data.elementId) {
-                                // Escape regex metacharacters in element ID
-                                const escapedId = message.data.elementId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                                const idPattern = new RegExp('id="' + escapedId + '"', 'g');
-                                const match = idPattern.exec(text);
-
-                                if (match) {
-                                    tagStart = match.index;
-                                    while (tagStart > 0 && text[tagStart] !== '<') {
-                                        tagStart--;
-                                    }
-                                }
-                            } else if (message.data.tagName && message.data.tagIndex !== undefined) {
-                                // Find nth element of given tag type in document order
-                                const tagName = message.data.tagName;
-                                const targetIndex = message.data.tagIndex;
-                                const tagRegex = new RegExp('<' + tagName + '(?:\\s|>|/>)', 'g');
-                                let match: RegExpExecArray | null;
-                                let count = 0;
-                                while ((match = tagRegex.exec(text)) !== null) {
-                                    if (count === targetIndex) {
-                                        tagStart = match.index;
-                                        break;
-                                    }
-                                    count++;
-                                }
-                            }
-
-                            if (tagStart >= 0) {
-                                const position = pset.editor.document.positionAt(tagStart);
+                            const selPos = findElementPositionInSource(
+                                pset.text,
+                                message.data.tagName,
+                                message.data.elementId,
+                                message.data.attributes || {},
+                                getCachedXml(pset.text)
+                            );
+                            if (selPos >= 0) {
+                                const position = pset.editor.document.positionAt(selPos);
                                 pset.editor.selection = new vscode.Selection(position, position);
                                 pset.editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
                             }

@@ -567,6 +567,21 @@ function handleOperation(op: Operation): void {
       img.src = url;
       break;
     }
+    case 'toggleBackground': {
+      const bgColors = ['#FFFFFF', '#808080', '#000000'];
+      const borderColors: Record<string, string> = { '#FFFFFF': '#000000', '#808080': '#444444', '#000000': '#666666' };
+      const bg = document.getElementById('canvasBackground');
+      const rect = bg ? bg.querySelector('rect') : null;
+      const current = (rect?.getAttribute('fill') || '#FFFFFF').toUpperCase();
+      const idx = bgColors.indexOf(current);
+      const next = bgColors[(idx + 1) % bgColors.length];
+      if (rect) {
+        rect.setAttribute('fill', next);
+        rect.setAttribute('stroke', borderColors[next] || '#000000');
+      }
+      body.style.backgroundColor = next;
+      break;
+    }
     }
   } catch (error) {
     logger.error(`Failed to execute operation: ${op}`, error);
@@ -640,21 +655,21 @@ canvas.bind('selected', (window: any, elems: SVGElement[]) => {
     // Notify VS Code of selection change
     if (elems && elems.length > 0) {
       const el = elems[0];
+      const attrs = getElementAttributes(el);
       const data: any = {
         elementId: el.id || null,
         tagName: el.tagName,
-        attributes: getElementAttributes(el)
+        attributes: attrs
       };
 
-      // For elements without ID, compute global tag index
-      if (!el.id) {
-        const svgContent = canvas.getSvgContent();
-        const all = svgContent.querySelectorAll(el.tagName);
-        for (let i = 0; i < all.length; i++) {
-          if (all[i] === el) {
-            data.tagIndex = i;
-            break;
-          }
+      // Always compute tagIndex as fallback (svgedit may auto-assign IDs
+      // like svg_1 that don't exist in the source text)
+      const svgContent = canvas.getSvgContent();
+      const all = svgContent.querySelectorAll(el.tagName);
+      for (let i = 0; i < all.length; i++) {
+        if (all[i] === el) {
+          data.tagIndex = i;
+          break;
         }
       }
 
@@ -730,6 +745,10 @@ window.addEventListener('message', (event) => {
         isInternalChange = true;
         try {
           const prepared = prepareSvgForCanvas(message.data);
+          if (prepared !== message.data) {
+            var hasVar = prepared.indexOf('var(--') !== -1;
+            logger.info('CSS variables resolved', { remaining: hasVar ? 'some unresolved' : 'all resolved', delta: prepared.length - message.data.length });
+          }
 
           // Try incremental update to preserve undo history
           const diffResult = computeSvgDiff(currentSvgString, prepared);
