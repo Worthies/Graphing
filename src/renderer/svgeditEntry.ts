@@ -567,6 +567,28 @@ function handleOperation(op: Operation): void {
       img.src = url;
       break;
     }
+    case 'undo': {
+      try {
+        if (canvas.undoMgr.getUndoStackSize() > 0) {
+          canvas.undoMgr.undo();
+          sendSvgUpdate();
+        }
+      } catch (err) {
+        logger.error('undo failed', err);
+      }
+      break;
+    }
+    case 'redo': {
+      try {
+        if (canvas.undoMgr.getRedoStackSize() > 0) {
+          canvas.undoMgr.redo();
+          sendSvgUpdate();
+        }
+      } catch (err) {
+        logger.error('redo failed', err);
+      }
+      break;
+    }
     case 'toggleBackground': {
       const bgColors = ['#FFFFFF', '#808080', '#000000'];
       const borderColors: Record<string, string> = { '#FFFFFF': '#000000', '#808080': '#444444', '#000000': '#666666' };
@@ -688,8 +710,8 @@ canvas.bind('selected', (window: any, elems: SVGElement[]) => {
   }
 });
 
-// Keyboard shortcut handler
-document.addEventListener('keydown', (e: KeyboardEvent) => {
+// Keyboard shortcut handler (capture phase so we run before VS Code)
+window.addEventListener('keydown', (e: KeyboardEvent) => {
   // Ignore when typing in inputs (e.g. attributes panel)
   const target = e.target as HTMLElement;
   if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) {
@@ -700,6 +722,24 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
     e.preventDefault();
     canvas.selectAllInCurrentLayer();
+    return;
+  }
+
+  // Cmd/Ctrl+Z: undo, Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y: redo
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')) {
+    e.preventDefault();
+    e.stopPropagation();
+    const isRedo = (e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y';
+    try {
+      if (isRedo) {
+        if (canvas.undoMgr.getRedoStackSize() > 0) canvas.undoMgr.redo();
+      } else {
+        if (canvas.undoMgr.getUndoStackSize() > 0) canvas.undoMgr.undo();
+      }
+      sendSvgUpdate();
+    } catch (err) {
+      logger.error('undo/redo failed', err);
+    }
     return;
   }
 
@@ -722,7 +762,7 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   // moveSelectedElements divides scalar deltas by zoom, so multiply to move in user units
   canvas.moveSelectedElements(dir[0] * step * zoom, dir[1] * step * zoom, true);
   sendSvgUpdate();
-});
+}, true);
 
 // Get element attributes for properties panel
 function getElementAttributes(el: SVGElement): Record<string, string> {

@@ -95,13 +95,11 @@ export const icons: Record<string, string> = {
   </svg>`,
 
   rotateClockwise: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M13 3A7 7 0 1 0 14.5 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-    <path d="M10 1L13.5 3L10.5 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M12.8 11.6 A6 6 0 1 1 11.6 4.4 M12.8 2 v4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>`,
 
   rotateCounterclockwise: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M3 3A7 7 0 1 1 1.5 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-    <path d="M6 1L2.5 3L5.5 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M2 11.6 A6 6 0 1 0 2 4.4 M1 2 v4 h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>`,
 
   zoomIn: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -155,6 +153,16 @@ export const icons: Record<string, string> = {
     <path d="M5 12V13C5 13.5 5.5 14 6 14H12C12.5 14 13 13.5 13 13V5C13 4.5 12.5 4 12 4H11" stroke="currentColor" stroke-width="1.5"/>
     <path d="M11 7L14 7M14 7L14 4M14 7L12.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M4 8L6 10L8 7L10 10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+
+  undo: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 6H10C12 6 13.5 7.5 13.5 9.5C13.5 11.5 12 13 10 13H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M6 3L3 6L6 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+
+  redo: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M13 6H6C4 6 2.5 7.5 2.5 9.5C2.5 11.5 4 13 6 13H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M10 3L13 6L10 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>`
 };
 

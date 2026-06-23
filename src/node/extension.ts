@@ -442,6 +442,9 @@ export function activate(context: vscode.ExtensionContext) {
                                 const position = pset.editor.document.positionAt(selPos);
                                 pset.editor.selection = new vscode.Selection(position, position);
                                 pset.editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+                                // Setting the text editor selection moves focus to it.
+                                // Restore focus to the webview so arrow-key nudging keeps working.
+                                pset.panel.reveal(pset.panel.viewColumn, false);
                             }
                         }
                         return;

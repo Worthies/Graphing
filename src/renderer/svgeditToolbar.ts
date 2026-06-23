@@ -13,7 +13,8 @@ export type Operation = 'delete' | 'duplicate' | 'group' | 'ungroup' | 'bringFor
   'rotateClockwiseByTheAngleStep' | 'rotateCounterclockwiseByTheAngleStep' |
   'zoomIn' | 'zoomOut' | 'objectToPath' |
   'centerVertical' | 'centerHorizontal' |
-  'polygonToRect' | 'fitCanvasToContent' | 'copyAsPng' | 'toggleBackground';
+  'polygonToRect' | 'fitCanvasToContent' | 'copyAsPng' | 'toggleBackground' |
+  'undo' | 'redo';
 
 interface ToolbarButton {
   id: string;
@@ -36,6 +37,9 @@ const drawModeButtons: ToolbarButton[] = [
 ];
 
 const operationButtons: ToolbarButton[] = [
+  { id: 'undo', label: 'Undo', title: 'Undo (Ctrl+Z)', codicon: 'discard', operation: 'undo' },
+  { id: 'redo', label: 'Redo', title: 'Redo (Ctrl+Shift+Z)', codicon: 'redo', operation: 'redo' },
+  { id: 'separator0', label: '', title: '' },
   { id: 'delete', label: 'Delete', title: 'Delete', codicon: 'trash', operation: 'delete' },
   { id: 'duplicate', label: 'Duplicate', title: 'Duplicate (Ctrl+D)', codicon: 'copy', operation: 'duplicate' },
   { id: 'group', label: 'Group', title: 'Group (Ctrl+G)', codicon: 'group-by-ref-type', operation: 'group' },
