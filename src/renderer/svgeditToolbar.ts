@@ -14,7 +14,7 @@ export type Operation = 'delete' | 'duplicate' | 'group' | 'ungroup' | 'bringFor
   'zoomIn' | 'zoomOut' | 'objectToPath' |
   'centerVertical' | 'centerHorizontal' |
   'polygonToRect' | 'fitCanvasToContent' | 'copyAsPng' | 'toggleBackground' |
-  'undo' | 'redo';
+  'undo' | 'redo' | 'reload';
 
 interface ToolbarButton {
   id: string;
@@ -39,6 +39,7 @@ const drawModeButtons: ToolbarButton[] = [
 const operationButtons: ToolbarButton[] = [
   { id: 'undo', label: 'Undo', title: 'Undo (Ctrl+Z)', codicon: 'discard', operation: 'undo' },
   { id: 'redo', label: 'Redo', title: 'Redo (Ctrl+Shift+Z)', codicon: 'redo', operation: 'redo' },
+  { id: 'reload', label: 'Reload', title: 'Reload SVG from text editor', codicon: 'refresh', operation: 'reload' },
   { id: 'separator0', label: '', title: '' },
   { id: 'delete', label: 'Delete', title: 'Delete', codicon: 'trash', operation: 'delete' },
   { id: 'duplicate', label: 'Duplicate', title: 'Duplicate (Ctrl+D)', codicon: 'copy', operation: 'duplicate' },

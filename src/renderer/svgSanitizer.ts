@@ -124,6 +124,40 @@ export function sanitizeSvgForEditor(svgString: string): string {
 }
 
 /**
+ * Diagnose XML parse errors in an SVG string. Returns null when the SVG parses,
+ * or a human-readable diagnostic string when it fails. Extracts line/column when
+ * available from the browser's <parsererror> element.
+ */
+export function diagnoseSvgError(svgString: string): string | null {
+  if (!svgString || !svgString.trim()) return 'SVG content is empty';
+  try {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(svgString, 'image/svg+xml');
+    var err = doc.querySelector('parsererror');
+    if (!err) {
+      if (!doc.documentElement || doc.documentElement.nodeName.toLowerCase() === 'parsererror') {
+        return 'SVG could not be parsed (no root element)';
+      }
+      var rootName = doc.documentElement.nodeName.toLowerCase();
+      if (rootName !== 'svg') {
+        return 'Root element is <' + rootName + '> — expected <svg>';
+      }
+      return null;
+    }
+    // Extract the most descriptive line we can find
+    var div = err.querySelector('div');
+    var text = (div && div.textContent) || err.textContent || '';
+    text = text.replace(/\s+/g, ' ').trim();
+    // Strip prefix the browser often adds
+    text = text.replace(/^This page contains the following errors?:?\s*/i, '');
+    text = text.replace(/Below is a rendering of the page up to the first error\.?$/i, '').trim();
+    return text || 'Malformed SVG/XML';
+  } catch (e) {
+    return 'Failed to parse SVG: ' + (e instanceof Error ? e.message : String(e));
+  }
+}
+
+/**
  * Resolve CSS custom properties in a raw SVG string.
  * Works entirely on string level — no DOMParser needed.
  * svgcanvas sanitizeSvg strips style attributes, so var() references break.

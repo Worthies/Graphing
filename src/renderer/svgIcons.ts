@@ -163,6 +163,11 @@ export const icons: Record<string, string> = {
   redo: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M13 6H6C4 6 2.5 7.5 2.5 9.5C2.5 11.5 4 13 6 13H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M10 3L13 6L10 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+
+  reload: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M13 8A5 5 0 1 1 11.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+    <path d="M13 2V5H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   </svg>`
 };
 
