@@ -175,9 +175,36 @@ const toolbar = new SvgeditToolbar(
 const stylePanel = new SvgeditStylePanel(
   footer,
   canvas,
-  (style: StyleState) => {
+  (style: StyleState, changes: Array<{name: string, newValue: string}>) => {
+    // Keep the canvas visual in sync via svgcanvas.
     applyStyleToSelection(style);
-    sendSvgUpdate();
+
+    // Nothing surgical to send if nothing meaningfully changed
+    // or if selection isn't exactly one element.
+    if (!changes || changes.length === 0) return;
+    const elems = getSelectedElements();
+    if (elems.length !== 1) return;
+    const el = elems[0];
+
+    // Suppress the sendSvgUpdate that svgcanvas's 'changed' event would trigger,
+    // and refresh the cached serialized string so a delayed sendSvgUpdate is a no-op.
+    isInternalChange = true;
+    try {
+      currentSvgString = sanitizeSvgForEditor(canvas.getSvgString());
+    } catch (err) {
+      logger.warn('attribute-delta: currentSvgString refresh failed', err);
+    }
+
+    const elementId = el.id && !/^svg_\d+$/.test(el.id) ? el.id : null;
+    vscode.postMessage({
+      command: 'attribute-delta',
+      tag: el.tagName,
+      elementId,
+      signature: getElementAttributes(el),
+      updates: changes
+    });
+
+    setTimeout(() => { isInternalChange = false; }, 200);
   },
   (el: SVGElement, newText: string) => {
     // Optimistic canvas update so the visual matches immediately.
