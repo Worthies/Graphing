@@ -6,6 +6,7 @@
 import SvgCanvas from '@svgedit/svgcanvas';
 import { SvgCanvasExtended, createSvgCanvasExtended } from './svgcanvas-types';
 import { sanitizeSvgForEditor, prepareSvgForCanvas, diagnoseSvgError } from './svgSanitizer';
+import { isPhase1Shape } from '../node/moveDelta';
 import { computeSvgDiff, applyOperations } from './svgDiffToOperations';
 import { SvgeditToolbar, DrawMode, Operation } from './svgeditToolbar';
 import { SvgeditStylePanel, StyleState, ElementAttributes } from './svgeditStylePanel';
@@ -772,12 +773,57 @@ window.addEventListener('keydown', (e: KeyboardEvent) => {
   if (!dir) return;
 
   e.preventDefault();
-  if (getSelectedElements().length === 0) return;
+  const selected = getSelectedElements();
+  if (selected.length === 0) return;
 
   const step = e.shiftKey ? 10 : 1;
   const zoom = canvas.getZoom();
-  // moveSelectedElements divides scalar deltas by zoom, so multiply to move in user units
-  canvas.moveSelectedElements(dir[0] * step * zoom, dir[1] * step * zoom, true);
+  const dx = dir[0] * step;
+  const dy = dir[1] * step;
+
+  // Decide up front whether the delta path applies to every selected element.
+  const allPhase1 = selected.every(el =>
+    isPhase1Shape(el.tagName) && !el.hasAttribute('transform')
+  );
+
+  if (allPhase1) {
+    // Capture signatures BEFORE moving so they still match the on-disk source.
+    const moves = selected.map(el => {
+      const attrs = getElementAttributes(el as SVGElement);
+      return {
+        tag: el.tagName,
+        elementId: el.id && !/^svg_\d+$/.test(el.id) ? el.id : null,
+        signature: attrs
+      };
+    });
+
+    // Update the canvas visually. Suppress the resulting `changed`/`transition`
+    // events from re-serializing through getSvgString().
+    isInternalChange = true;
+    try {
+      // moveSelectedElements divides scalar deltas by zoom, so multiply.
+      canvas.moveSelectedElements(dx * zoom, dy * zoom, true);
+    } finally {
+      // Keep suppressed through the next microtask so the debounced notifyChange
+      // (fires on 'changed') sees the guard.
+      setTimeout(() => { isInternalChange = false; }, 200);
+    }
+
+    // Track the new canvas state so subsequent diff comparisons in sendSvgUpdate
+    // don't spuriously re-send.
+    try {
+      currentSvgString = sanitizeSvgForEditor(canvas.getSvgString());
+    } catch (err) {
+      logger.warn('move-delta: failed to update currentSvgString cache', err);
+    }
+
+    vscode.postMessage({ command: 'move-delta', dx, dy, moves });
+    return;
+  }
+
+  // Fallback: at least one element is Phase 2 (path, group, transformed) —
+  // use the legacy full-serialize round-trip so behavior is unchanged for it.
+  canvas.moveSelectedElements(dx * zoom, dy * zoom, true);
   sendSvgUpdate();
 }, true);
 
