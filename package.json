@@ -2,7 +2,7 @@
   "name": "graphing",
   "displayName": "Graphing",
   "description": "Visual and literal SVG editor for VSCode.",
-  "version": "2.9.5",
+  "version": "2.9.6",
   "publisher": "cloorc",
   "icon": "images/graphing.png",
   "galleryBanner": {
