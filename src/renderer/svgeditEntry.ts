@@ -178,6 +178,33 @@ const stylePanel = new SvgeditStylePanel(
   (style: StyleState) => {
     applyStyleToSelection(style);
     sendSvgUpdate();
+  },
+  (el: SVGElement, newText: string) => {
+    // Optimistic canvas update so the visual matches immediately.
+    isInternalChange = true;
+    try {
+      el.innerHTML = newText;
+    } catch (err) {
+      logger.warn('text-content-delta: canvas innerHTML update failed', err);
+    }
+    try {
+      currentSvgString = sanitizeSvgForEditor(canvas.getSvgString());
+    } catch (err) {
+      logger.warn('text-content-delta: currentSvgString refresh failed', err);
+    }
+
+    const elementId = el.id && !/^svg_\d+$/.test(el.id) ? el.id : null;
+    vscode.postMessage({
+      command: 'text-content-delta',
+      tag: 'text',
+      elementId,
+      signature: getElementAttributes(el),
+      newText
+    });
+
+    // Keep the guard through the debounce window so trailing 'changed'
+    // events from svgcanvas don't trigger a full sendSvgUpdate.
+    setTimeout(() => { isInternalChange = false; }, 200);
   }
 );
 

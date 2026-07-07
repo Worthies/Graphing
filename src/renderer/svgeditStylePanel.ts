@@ -78,15 +78,18 @@ export class SvgeditStylePanel {
   private viewBoxY: number = 0;
   private viewBoxW: number = 400;
   private viewBoxH: number = 400;
+  private onTextContentChange: ((element: SVGElement, newText: string) => void) | null = null;
 
   constructor(
     container: HTMLElement,
     canvas: any,
-    onStyleChange: (style: StyleState) => void
+    onStyleChange: (style: StyleState) => void,
+    onTextContentChange?: (element: SVGElement, newText: string) => void
   ) {
     this.container = container;
     this.canvas = canvas;
     this.onStyleChange = onStyleChange;
+    this.onTextContentChange = onTextContentChange || null;
     this.render();
   }
 
@@ -332,6 +335,21 @@ export class SvgeditStylePanel {
       if (controls.length > 0) {
         this.panel.appendChild(this.createSection('Position & Size', controls));
       }
+    }
+
+    // Content section (only for a single-selected <text> element)
+    if (tagName === 'text') {
+        const elems = (this.canvas as any).getSelectedElements() || [];
+        if (elems.length === 1 && this.onTextContentChange) {
+            const el = elems[0] as SVGElement;
+            const initial = el.innerHTML;
+            const callback = this.onTextContentChange;
+            this.panel.appendChild(this.createSection('Content', [
+                this.createTextContentControl('Text', initial, (newText) => {
+                    callback(el, newText);
+                })
+            ]));
+        }
     }
 
     // Style section
@@ -687,6 +705,51 @@ export class SvgeditStylePanel {
     group.appendChild(textarea);
 
     this.inputs.set(property, textarea);
+    return group;
+  }
+
+  private createTextContentControl(
+    label: string,
+    initialText: string,
+    onCommit: (newText: string) => void
+  ): HTMLElement {
+    const group = document.createElement('div');
+    group.style.cssText = 'display: flex; flex-direction: column; gap: 2px; width: 100%;';
+
+    const labelEl = document.createElement('label');
+    labelEl.textContent = label;
+    labelEl.style.cssText = 'font-size: 11px; opacity: 0.8;';
+    group.appendChild(labelEl);
+
+    const textarea = document.createElement('textarea');
+    textarea.value = initialText;
+    textarea.rows = 3;
+    textarea.placeholder = '(no text)';
+    textarea.style.cssText = `
+      width: 100%;
+      border: 1px solid var(--vscode-input-border, #3c3c3c);
+      border-radius: 3px;
+      background: var(--vscode-input-background, #3c3c3c);
+      color: var(--vscode-input-foreground, #cccccc);
+      padding: 4px;
+      box-sizing: border-box;
+      font-family: monospace;
+      font-size: 11px;
+      resize: vertical;
+    `;
+
+    // Track the value at focus time so we only commit on real change.
+    let focusedValue = initialText;
+    textarea.addEventListener('focus', () => {
+        focusedValue = textarea.value;
+    });
+    textarea.addEventListener('blur', () => {
+        if (textarea.value !== focusedValue) {
+            onCommit(textarea.value);
+        }
+    });
+
+    group.appendChild(textarea);
     return group;
   }
 

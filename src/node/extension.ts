@@ -459,6 +459,93 @@ export function activate(context: vscode.ExtensionContext) {
                         }
                         return;
                     }
+                    case "text-content-delta": {
+                        const payload = message as {
+                            tag: 'text';
+                            elementId: string | null;
+                            signature: Record<string, string>;
+                            newText: string;
+                        };
+                        if (payload.tag !== 'text') return;
+                        if (typeof payload.newText !== 'string') return;
+                        if (pset.blockOnChangeText) {
+                            outputChannel.appendLine("text-content-delta: already processing change, skipping");
+                            return;
+                        }
+
+                        // 1. Validate the new inner content parses as XML when wrapped in a namespaced root.
+                        const wrapped = '<r xmlns="http://www.w3.org/2000/svg">' + payload.newText + '</r>';
+                        if (parseXml(wrapped) === null) {
+                            vscode.window.showWarningMessage(
+                                "Text content is not valid XML. Kept previous content."
+                            );
+                            outputChannel.appendLine("text-content-delta: rejected — invalid XML");
+                            return;
+                        }
+
+                        pset.blockOnChangeText = true;
+                        try {
+                            const xml = parseXml(pset.text);
+                            if (xml === null) {
+                                outputChannel.appendLine("text-content-delta: source parse failed");
+                                return;
+                            }
+                            const el = findElementInXml('text', payload.elementId, payload.signature, xml);
+                            if (!el) {
+                                outputChannel.appendLine("text-content-delta: could not locate <text> element");
+                                return;
+                            }
+
+                            // Compute the replacement range.
+                            // Case A: <text ...>OLD</text>  → replace [openElement.end .. closeElement.start] with newText.
+                            // Case B: <text ... />           → rewrite the '/>' as '>NEWTEXT</text>'.
+                            let replaceStart: number;
+                            let replaceEnd: number;
+                            let replacement: string;
+
+                            if (el.positions.closeElement !== null) {
+                                replaceStart = el.positions.openElement.end;
+                                replaceEnd = el.positions.closeElement.start;
+                                replacement = payload.newText;
+                            } else {
+                                // Self-closing: rewrite `/>` at end of openElement into `>NEWTEXT</text>`.
+                                // openElement.end is the offset just after '>'. So '/' is at openElement.end - 2
+                                // and '>' is at openElement.end - 1. Sanity-check the '/' is actually there.
+                                const openEnd = el.positions.openElement.end;
+                                if (pset.text.charAt(openEnd - 2) !== '/') {
+                                    outputChannel.appendLine("text-content-delta: unexpected open tag shape for self-close");
+                                    return;
+                                }
+                                replaceStart = openEnd - 2;
+                                replaceEnd = openEnd;
+                                replacement = '>' + payload.newText + '</' + el.tag + '>';
+                            }
+
+                            const range = new vscode.Range(
+                                pset.editor.document.positionAt(replaceStart),
+                                pset.editor.document.positionAt(replaceEnd)
+                            );
+                            const success = await pset.editor.edit(editBuilder => {
+                                editBuilder.replace(range, replacement);
+                            });
+
+                            if (success) {
+                                pset.text = pset.editor.document.getText();
+                                outputChannel.appendLine(
+                                    `text-content-delta: applied (${replaceEnd - replaceStart} → ${replacement.length} chars)`
+                                );
+                                const refreshed = parseXml(pset.text);
+                                if (refreshed) outlineProvider.refresh(pset.editor.document, refreshed);
+                            } else {
+                                outputChannel.appendLine("text-content-delta: editor.edit returned false");
+                            }
+                        } catch (err) {
+                            outputChannel.appendLine(`text-content-delta: unexpected error ${err}`);
+                        } finally {
+                            pset.blockOnChangeText = false;
+                        }
+                        return;
+                    }
                     case "svg-request":
                         // Send raw SVG text to webview (SVG Edit handles parsing internally)
                         pset.panel.webview.postMessage({
