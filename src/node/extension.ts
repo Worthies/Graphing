@@ -196,25 +196,24 @@ export function activate(context: vscode.ExtensionContext) {
         'se:connector', 'se:nonce', 'style'
     ]);
 
-    function findElementPositionInSource(
-        text: string,
+    function findElementInXml(
         tagName: string | undefined,
         elementId: string | null,
         canvasAttrs: Record<string, string>,
         xml: XmlElement | null
-    ): number {
-        if (!xml || !tagName) return -1;
+    ): XmlElement | null {
+        if (!xml || !tagName) return null;
 
         // Strategy 1: ID exists in source text (skip svgedit auto-generated IDs)
         if (elementId && !SVGEDIT_AUTO_ID_RE.test(elementId)) {
             const found = findByAttr(xml, 'id', elementId);
-            if (found) return found.positions.openElement.start;
+            if (found) return found;
         }
 
         // Strategy 2: attribute signature matching against parsed XML tree
         const candidates = collectByTag(xml, tagName);
-        if (candidates.length === 0) return -1;
-        if (candidates.length === 1) return candidates[0].positions.openElement.start;
+        if (candidates.length === 0) return null;
+        if (candidates.length === 1) return candidates[0];
 
         // Build a filtered attribute set (skip svgedit internals and auto-IDs)
         const sigAttrs: Record<string, string> = {};
@@ -247,8 +246,18 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }
 
-        if (bestMatch && bestScore > 0) return bestMatch.positions.openElement.start;
-        return -1;
+        return bestScore > 0 ? bestMatch : null;
+    }
+
+    function findElementPositionInSource(
+        text: string,
+        tagName: string | undefined,
+        elementId: string | null,
+        canvasAttrs: Record<string, string>,
+        xml: XmlElement | null
+    ): number {
+        const found = findElementInXml(tagName, elementId, canvasAttrs, xml);
+        return found ? found.positions.openElement.start : -1;
     }
 
     function findByAttr(node: XmlElement, attr: string, value: string): XmlElement | null {
