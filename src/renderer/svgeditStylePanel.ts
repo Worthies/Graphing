@@ -64,11 +64,22 @@ const DEFAULT_ATTRIBUTES: ElementAttributes = {
   transform: ''
 };
 
+const CAMEL_TO_KEBAB: Record<string, string> = {
+  fillOpacity: 'fill-opacity',
+  strokeWidth: 'stroke-width',
+  strokeOpacity: 'stroke-opacity',
+  fontFamily: 'font-family',
+  fontSize: 'font-size',
+  fontWeight: 'font-weight',
+  fontStyle: 'font-style'
+};
+
 export class SvgeditStylePanel {
   private container: HTMLElement;
   private canvas: any;
   private currentAttributes: ElementAttributes = { ...DEFAULT_ATTRIBUTES };
-  private onStyleChange: (style: StyleState) => void;
+  private lastAppliedAttributes: ElementAttributes | null = null;
+  private onStyleChange: (style: StyleState, changes: Array<{name: string, newValue: string}>) => void;
   private onCanvasResize: ((width: number, height: number) => void) | null = null;
   private inputs: Map<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> = new Map();
   private panel: HTMLElement | null = null;
@@ -83,7 +94,7 @@ export class SvgeditStylePanel {
   constructor(
     container: HTMLElement,
     canvas: any,
-    onStyleChange: (style: StyleState) => void,
+    onStyleChange: (style: StyleState, changes: Array<{name: string, newValue: string}>) => void,
     onTextContentChange?: (element: SVGElement, newText: string) => void
   ) {
     this.container = container;
@@ -127,11 +138,13 @@ export class SvgeditStylePanel {
       const el = elems[0] as SVGElement;
       this.currentAttributes = this.getAttributesFromElement(el);
     }
+    this.lastAppliedAttributes = { ...this.currentAttributes };
     this.updateUI();
   }
 
   updateFromElement(el: SVGElement): void {
     this.currentAttributes = this.getAttributesFromElement(el);
+    this.lastAppliedAttributes = { ...this.currentAttributes };
     this.updateUI();
   }
 
@@ -753,8 +766,30 @@ export class SvgeditStylePanel {
     return group;
   }
 
+  private computeChanges(
+    prev: ElementAttributes,
+    curr: ElementAttributes
+  ): Array<{name: string, newValue: string}> {
+    const changes: Array<{name: string, newValue: string}> = [];
+    const keys = Object.keys(curr) as Array<keyof ElementAttributes>;
+    for (const key of keys) {
+      if (key === 'tagName') continue; // metadata, not an SVG attribute
+      const prevV = (prev as any)[key];
+      const currV = (curr as any)[key];
+      if (String(prevV) === String(currV)) continue;
+      const attrName = CAMEL_TO_KEBAB[key as string] || (key as string);
+      changes.push({ name: attrName, newValue: String(currV) });
+    }
+    return changes;
+  }
+
   private applyStyle(): void {
-    this.onStyleChange(this.currentAttributes);
+    let changes: Array<{name: string, newValue: string}> = [];
+    if (this.lastAppliedAttributes) {
+      changes = this.computeChanges(this.lastAppliedAttributes, this.currentAttributes);
+    }
+    this.lastAppliedAttributes = { ...this.currentAttributes };
+    this.onStyleChange(this.currentAttributes, changes);
   }
 
   private updateUI(): void {
