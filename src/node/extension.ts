@@ -459,6 +459,82 @@ export function activate(context: vscode.ExtensionContext) {
                         }
                         return;
                     }
+                    case "attribute-delta": {
+                        const payload = message as {
+                            tag: string;
+                            elementId: string | null;
+                            signature: Record<string, string>;
+                            updates: Array<{ name: string; newValue: string }>;
+                        };
+                        if (!payload.updates || payload.updates.length === 0) return;
+                        if (typeof payload.tag !== 'string' || payload.tag.length === 0) return;
+                        if (pset.blockOnChangeText) {
+                            outputChannel.appendLine("attribute-delta: already processing change, skipping");
+                            return;
+                        }
+
+                        pset.blockOnChangeText = true;
+                        try {
+                            const xml = parseXml(pset.text);
+                            if (xml === null) {
+                                outputChannel.appendLine("attribute-delta: source parse failed");
+                                return;
+                            }
+                            const el = findElementInXml(payload.tag, payload.elementId, payload.signature, xml);
+                            if (!el) {
+                                outputChannel.appendLine(`attribute-delta: could not locate <${payload.tag}>`);
+                                return;
+                            }
+
+                            interface PlannedEdit { start: number; end: number; newValue: string; }
+                            const edits: PlannedEdit[] = [];
+                            for (const u of payload.updates) {
+                                const attrPos = el.positions.attrs[u.name];
+                                if (attrPos) {
+                                    edits.push({
+                                        start: attrPos.value.start,
+                                        end: attrPos.value.end,
+                                        newValue: u.newValue
+                                    });
+                                } else {
+                                    const openEnd = el.positions.openElement.end;
+                                    const isSelfClose = pset.text.charAt(openEnd - 2) === '/';
+                                    const insertAt = isSelfClose ? openEnd - 2 : openEnd - 1;
+                                    edits.push({
+                                        start: insertAt,
+                                        end: insertAt,
+                                        newValue: ` ${u.name}="${u.newValue}"`
+                                    });
+                                }
+                            }
+
+                            if (edits.length === 0) return;
+                            edits.sort((a, b) => b.start - a.start);
+
+                            const success = await pset.editor.edit(editBuilder => {
+                                for (const e of edits) {
+                                    const range = new vscode.Range(
+                                        pset.editor.document.positionAt(e.start),
+                                        pset.editor.document.positionAt(e.end)
+                                    );
+                                    editBuilder.replace(range, e.newValue);
+                                }
+                            });
+                            if (success) {
+                                pset.text = pset.editor.document.getText();
+                                outputChannel.appendLine(`attribute-delta: applied ${edits.length} edits`);
+                                const refreshed = parseXml(pset.text);
+                                if (refreshed) outlineProvider.refresh(pset.editor.document, refreshed);
+                            } else {
+                                outputChannel.appendLine("attribute-delta: editor.edit returned false");
+                            }
+                        } catch (err) {
+                            outputChannel.appendLine(`attribute-delta: unexpected error ${err}`);
+                        } finally {
+                            pset.blockOnChangeText = false;
+                        }
+                        return;
+                    }
                     case "text-content-delta": {
                         const payload = message as {
                             tag: 'text';
