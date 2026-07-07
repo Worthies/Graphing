@@ -11,6 +11,7 @@ import { XmlDiff, jsondiffForXml, xmlJsonDiffToStringDiff } from "../isomorphism
 import { LinearOptions } from "../isomorphism/xmlSerializer";
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from "vscode-languageclient/node";
 import { SvgOutlineProvider, SvgOutlineItem } from "./svgOutlineProvider";
+import { computeMoveUpdates, isPhase1Shape } from "./moveDelta";
 
 // Inline utilities from ../isomorphism/utils to avoid loading incremental-dom at runtime
 function assertNever(x: never): never {
@@ -371,6 +372,93 @@ export function activate(context: vscode.ExtensionContext) {
                             pset.blockOnChangeText = false;
                         }
                         return;
+                    case "move-delta": {
+                        const payload = message as {
+                            dx: number; dy: number;
+                            moves: Array<{ tag: string; elementId: string | null; signature: Record<string, string> }>;
+                        };
+                        if (!payload.moves || payload.moves.length === 0) return;
+                        if (typeof payload.dx !== 'number' || typeof payload.dy !== 'number') return;
+                        if (pset.blockOnChangeText) {
+                            outputChannel.appendLine("move-delta: already processing change, skipping");
+                            return;
+                        }
+
+                        pset.blockOnChangeText = true;
+                        try {
+                            const xml = parseXml(pset.text);
+                            if (xml === null) {
+                                outputChannel.appendLine("move-delta: XML parse failed, falling back to full sync");
+                                return;
+                            }
+                            const decimalPlaces = optionOf(config.get<number>("decimalPlaces")).getOrElse(1);
+
+                            // Resolve each move into concrete (interval, newValue) edits.
+                            interface PlannedEdit { start: number; end: number; newValue: string; }
+                            const edits: PlannedEdit[] = [];
+
+                            for (const m of payload.moves) {
+                                if (!isPhase1Shape(m.tag)) {
+                                    outputChannel.appendLine(`move-delta: unsupported tag ${m.tag}, aborting delta path`);
+                                    return; // fall through to next message; webview will resend via sendSvgUpdate for these
+                                }
+                                const el = findElementInXml(m.tag, m.elementId, m.signature, xml);
+                                if (!el) {
+                                    outputChannel.appendLine(`move-delta: could not locate ${m.tag}, aborting delta path`);
+                                    return;
+                                }
+                                const updates = computeMoveUpdates(el, payload.dx, payload.dy, decimalPlaces);
+                                if (updates.length === 0) {
+                                    outputChannel.appendLine(`move-delta: no updates for ${m.tag} (likely has transform), aborting`);
+                                    return;
+                                }
+                                for (const u of updates) {
+                                    const attrPos = el.positions.attrs[u.name];
+                                    if (attrPos) {
+                                        edits.push({ start: attrPos.value.start, end: attrPos.value.end, newValue: u.newValue });
+                                    } else {
+                                        // Attribute doesn't exist in source yet — insert into the open tag before ">".
+                                        // Insert as ` name="value"` right before the '>' of the open tag.
+                                        const openEnd = el.positions.openElement.end;
+                                        // The open tag ends with '>' or '/>'. Insert before the closing character.
+                                        const isSelfClose = pset.text.charAt(openEnd - 2) === '/';
+                                        const insertAt = isSelfClose ? openEnd - 2 : openEnd - 1;
+                                        edits.push({ start: insertAt, end: insertAt, newValue: ` ${u.name}="${u.newValue}"` });
+                                    }
+                                }
+                            }
+
+                            if (edits.length === 0) return;
+
+                            // Apply edits in descending order of start so earlier edits don't shift later intervals.
+                            edits.sort((a, b) => b.start - a.start);
+
+                            const success = await pset.editor.edit(editBuilder => {
+                                for (const e of edits) {
+                                    const range = new vscode.Range(
+                                        pset.editor.document.positionAt(e.start),
+                                        pset.editor.document.positionAt(e.end)
+                                    );
+                                    editBuilder.replace(range, e.newValue);
+                                }
+                            });
+
+                            if (success) {
+                                pset.text = pset.editor.document.getText();
+                                outputChannel.appendLine(`move-delta: applied ${edits.length} attribute edits`);
+                                // Refresh outline; keep parity with the "modified" path.
+                                const refreshed = parseXml(pset.text);
+                                if (refreshed) outlineProvider.refresh(pset.editor.document, refreshed);
+                            } else {
+                                outputChannel.appendLine(`move-delta: editor.edit returned false`);
+                            }
+                        } catch (err) {
+                            outputChannel.appendLine(`move-delta: unexpected error ${err}`);
+                        } finally {
+                            pset.blockOnChangeText = false;
+                        }
+                        return;
+                    }
                     case "svg-request":
                         // Send raw SVG text to webview (SVG Edit handles parsing internally)
                         pset.panel.webview.postMessage({
