@@ -535,6 +535,26 @@ export function activate(context: vscode.ExtensionContext) {
                         }
                         return;
                     }
+                    case "input-focused": {
+                        const focused = (message as { focused: boolean }).focused === true;
+                        vscode.commands.executeCommand('setContext', 'graphingInputFocused', focused);
+                        return;
+                    }
+                    case "text-undo":
+                    case "text-redo": {
+                        const cmd = message.command === "text-undo" ? "undo" : "redo";
+                        try {
+                            await vscode.window.showTextDocument(pset.editor.document, {
+                                viewColumn: pset.editor.viewColumn,
+                                preserveFocus: false
+                            });
+                            await vscode.commands.executeCommand(cmd);
+                            pset.panel.reveal(pset.panel.viewColumn, false);
+                        } catch (err) {
+                            outputChannel.appendLine(`${message.command}: ${err}`);
+                        }
+                        return;
+                    }
                     case "text-content-delta": {
                         const payload = message as {
                             tag: 'text';
