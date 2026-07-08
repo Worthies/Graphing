@@ -640,25 +640,11 @@ function handleOperation(op: Operation): void {
       break;
     }
     case 'undo': {
-      try {
-        if (canvas.undoMgr.getUndoStackSize() > 0) {
-          canvas.undoMgr.undo();
-          sendSvgUpdate();
-        }
-      } catch (err) {
-        logger.error('undo failed', err);
-      }
+      vscode.postMessage({ command: 'text-undo' });
       break;
     }
     case 'redo': {
-      try {
-        if (canvas.undoMgr.getRedoStackSize() > 0) {
-          canvas.undoMgr.redo();
-          sendSvgUpdate();
-        }
-      } catch (err) {
-        logger.error('redo failed', err);
-      }
+      vscode.postMessage({ command: 'text-redo' });
       break;
     }
     case 'toggleBackground': {
@@ -782,6 +768,33 @@ canvas.bind('selected', (window: any, elems: SVGElement[]) => {
   }
 });
 
+// Track focus of editable elements inside the webview so the extension can
+// suppress its keybindings (graphing.delete etc.) while the user is typing.
+function isEditableTarget(t: EventTarget | null): boolean {
+  if (!t || !(t as HTMLElement).tagName) return false;
+  const el = t as HTMLElement;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+}
+
+let inputFocusReported = false;
+function reportInputFocus(focused: boolean): void {
+  if (focused === inputFocusReported) return;
+  inputFocusReported = focused;
+  vscode.postMessage({ command: 'input-focused', focused });
+}
+
+document.addEventListener('focusin', (e) => {
+  if (isEditableTarget(e.target)) reportInputFocus(true);
+});
+document.addEventListener('focusout', () => {
+  // Wait for the next focus target before deciding — if it's another editable
+  // field, this is a hand-off, not a real blur.
+  setTimeout(() => {
+    if (!isEditableTarget(document.activeElement)) reportInputFocus(false);
+  }, 0);
+});
+
 // Keyboard shortcut handler (capture phase so we run before VS Code)
 window.addEventListener('keydown', (e: KeyboardEvent) => {
   // Ignore when typing in inputs (e.g. attributes panel)
@@ -802,16 +815,7 @@ window.addEventListener('keydown', (e: KeyboardEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const isRedo = (e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y';
-    try {
-      if (isRedo) {
-        if (canvas.undoMgr.getRedoStackSize() > 0) canvas.undoMgr.redo();
-      } else {
-        if (canvas.undoMgr.getUndoStackSize() > 0) canvas.undoMgr.undo();
-      }
-      sendSvgUpdate();
-    } catch (err) {
-      logger.error('undo/redo failed', err);
-    }
+    vscode.postMessage({ command: isRedo ? 'text-redo' : 'text-undo' });
     return;
   }
 

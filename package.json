@@ -85,115 +85,115 @@
       {
         "command": "graphing.delete",
         "key": "backspace",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.delete",
         "key": "delete",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.duplicate",
         "key": "ctrl+d",
         "mac": "cmd+d",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.zoomIn",
         "key": "oem_plus",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.zoomOut",
         "key": "oem_minus",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.group",
         "key": "ctrl+g",
         "mac": "cmd+g",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.ungroup",
         "key": "ctrl+u",
         "mac": "cmd+u",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.font",
         "key": "f8",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.bringForward",
         "key": "pageup",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.sendBackward",
         "key": "pagedown",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.alignLeft",
         "key": "ctrl+alt+numpad4",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.alignRight",
         "key": "ctrl+alt+numpad6",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.alignBottom",
         "key": "ctrl+alt+numpad2",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.alignTop",
         "key": "ctrl+alt+numpad8",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.objectToPath",
         "key": "shift+ctrl+c",
         "mac": "shift+cmd+c",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.rotateClockwise",
         "key": "ctrl+]",
         "mac": "cmd+]",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.rotateCounterclockwise",
         "key": "ctrl+[",
         "mac": "cmd+[",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.rotateClockwiseByTheAngleStep",
         "key": "]",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.rotateCounterclockwiseByTheAngleStep",
         "key": "[",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.centerVertical",
         "key": "ctrl+alt+h",
         "mac": "cmd+alt+h",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       },
       {
         "command": "graphing.centerHorizontal",
         "key": "ctrl+alt+t",
         "mac": "cmd+alt+t",
-        "when": "graphingWebviewFocus"
+        "when": "graphingWebviewFocus && !graphingInputFocused"
       }
     ],
     "languages": [
