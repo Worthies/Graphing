@@ -49,8 +49,18 @@ export function extendMarkdownIt(md: any) {
             .replace(/(href|xlink:href)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, "");
     }
 
+    // 0. Preserve blank lines inside <svg>...</svg> so markdown-it's
+    //    generic-tag HTML-block rule doesn't terminate the block at the
+    //    first blank line and fragment the SVG.
+    md.core.ruler.before("block", "svg-preserve-blank-lines", function (state: any) {
+        state.src = state.src.replace(
+            /<svg\b[^>]*>[\s\S]*?<\/svg>/gi,
+            function (m: string) { return m.replace(/\n[ \t]*\n/g, "\n<!--_-->\n"); }
+        );
+    });
+
     // 1. Convert ```svg code fences into rendered HTML
-    md.core.ruler.after("fence", "svg-fence-render", function (state: any) {
+    md.core.ruler.after("block", "svg-fence-render", function (state: any) {
         var tokens = state.tokens;
         for (var i = 0; i < tokens.length; i++) {
             if (tokens[i].type === "fence" && tokens[i].info.trim().toLowerCase() === "svg") {
@@ -1045,6 +1055,11 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     outputChannel.appendLine("Graphing extension activated successfully.");
+
+    // VS Code's markdown feature reads `extendMarkdownIt` off the value
+    // returned from activate() (not the module.exports). Expose it here so
+    // the inline-<svg> / ```svg fence rendering plugin actually gets wired.
+    return { extendMarkdownIt };
 }
 
 function showError(reason: any) {
