@@ -53,7 +53,7 @@ jobs:
           generate_release_notes: true
           files: '*.vsix'
 
-      - name: Publish to VS Code Marketplace
+      - name: Publish to Open VSX Registry
         env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: npx --yes @vscode/vsce publish --packagePath $(ls *.vsix)
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: npx --yes ovsx publish $(ls *.vsix)

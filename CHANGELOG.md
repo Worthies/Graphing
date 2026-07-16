@@ -6,9 +6,7 @@
 
 - 2.9.0
   - Correct only the changed portions without auto formatting
-  - Correct only the changed portions without auto formatting
 - 2.8.0
-  - Support script
   - Add preview mode
     - Other modes now certainly stop the animations and scripts
 - 2.7.0
