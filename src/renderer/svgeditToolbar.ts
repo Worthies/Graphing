@@ -2,8 +2,8 @@
  * SVG Edit toolbar component.
  * Renders drawing mode buttons and operation buttons using inline SVG icons.
  */
-
 import { getIcon } from './svgIcons';
+import { t } from './i18n';
 
 export type DrawMode = 'select' | 'rect' | 'ellipse' | 'circle' | 'line' | 'polyline' | 'polygon' | 'path' | 'text' | 'image';
 
@@ -18,53 +18,53 @@ export type Operation = 'delete' | 'duplicate' | 'group' | 'ungroup' | 'bringFor
 
 interface ToolbarButton {
   id: string;
-  label: string;
-  title: string;
+  i18nKey: string;        // full key, e.g. 'toolbar.modes.select'
+  shortcut?: string;      // keyboard hint, interpolated as {{shortcut}}
   codicon?: string;
   mode?: DrawMode;
   operation?: Operation;
 }
 
 const drawModeButtons: ToolbarButton[] = [
-  { id: 'select', label: 'Select', title: 'Select (V)', codicon: 'edit', mode: 'select' },
-  { id: 'rect', label: 'Rectangle', title: 'Rectangle (R)', codicon: 'symbol-square', mode: 'rect' },
-  { id: 'ellipse', label: 'Ellipse', title: 'Ellipse (E)', codicon: 'circle-large', mode: 'ellipse' },
-  { id: 'line', label: 'Line', title: 'Line (L)', codicon: 'dash', mode: 'line' },
-  { id: 'polyline', label: 'Polyline', title: 'Polyline (P)', codicon: 'graph-line', mode: 'polyline' },
-  { id: 'path', label: 'Path', title: 'Path (A)', codicon: 'spline', mode: 'path' },
-  { id: 'text', label: 'Text', title: 'Text (T)', codicon: 'symbol-text', mode: 'text' },
-  { id: 'image', label: 'Image', title: 'Image (I)', codicon: 'image', mode: 'image' }
+  { id: 'select', i18nKey: 'toolbar.modes.select', shortcut: 'V', codicon: 'edit', mode: 'select' },
+  { id: 'rect', i18nKey: 'toolbar.modes.rect', shortcut: 'R', codicon: 'symbol-square', mode: 'rect' },
+  { id: 'ellipse', i18nKey: 'toolbar.modes.ellipse', shortcut: 'E', codicon: 'circle-large', mode: 'ellipse' },
+  { id: 'line', i18nKey: 'toolbar.modes.line', shortcut: 'L', codicon: 'dash', mode: 'line' },
+  { id: 'polyline', i18nKey: 'toolbar.modes.polyline', shortcut: 'P', codicon: 'graph-line', mode: 'polyline' },
+  { id: 'path', i18nKey: 'toolbar.modes.path', shortcut: 'A', codicon: 'spline', mode: 'path' },
+  { id: 'text', i18nKey: 'toolbar.modes.text', shortcut: 'T', codicon: 'symbol-text', mode: 'text' },
+  { id: 'image', i18nKey: 'toolbar.modes.image', shortcut: 'I', codicon: 'image', mode: 'image' }
 ];
 
 const operationButtons: ToolbarButton[] = [
-  { id: 'undo', label: 'Undo', title: 'Undo (Ctrl+Z)', codicon: 'discard', operation: 'undo' },
-  { id: 'redo', label: 'Redo', title: 'Redo (Ctrl+Shift+Z)', codicon: 'redo', operation: 'redo' },
-  { id: 'reload', label: 'Reload', title: 'Reload SVG from text editor', codicon: 'refresh', operation: 'reload' },
-  { id: 'separator0', label: '', title: '' },
-  { id: 'delete', label: 'Delete', title: 'Delete', codicon: 'trash', operation: 'delete' },
-  { id: 'duplicate', label: 'Duplicate', title: 'Duplicate (Ctrl+D)', codicon: 'copy', operation: 'duplicate' },
-  { id: 'group', label: 'Group', title: 'Group (Ctrl+G)', codicon: 'group-by-ref-type', operation: 'group' },
-  { id: 'ungroup', label: 'Ungroup', title: 'Ungroup (Ctrl+U)', codicon: 'ungroup-by-ref-type', operation: 'ungroup' },
-  { id: 'bringForward', label: 'Forward', title: 'Bring Forward (PageUp)', codicon: 'arrow-up', operation: 'bringForward' },
-  { id: 'sendBackward', label: 'Backward', title: 'Send Backward (PageDown)', codicon: 'arrow-down', operation: 'sendBackward' },
-  { id: 'separator1', label: '', title: '' },
-  { id: 'alignLeft', label: 'Align Left', title: 'Align Left', codicon: 'align-left', operation: 'alignLeft' },
-  { id: 'alignRight', label: 'Align Right', title: 'Align Right', codicon: 'align-right', operation: 'alignRight' },
-  { id: 'alignTop', label: 'Align Top', title: 'Align Top', codicon: 'align-top', operation: 'alignTop' },
-  { id: 'alignBottom', label: 'Align Bottom', title: 'Align Bottom', codicon: 'align-bottom', operation: 'alignBottom' },
-  { id: 'separator2', label: '', title: '' },
-  { id: 'rotateClockwise', label: 'Rotate CW', title: 'Rotate Clockwise (Ctrl+])', codicon: 'refresh', operation: 'rotateClockwise' },
-  { id: 'rotateCounterclockwise', label: 'Rotate CCW', title: 'Rotate Counterclockwise (Ctrl+[)', codicon: 'refresh', operation: 'rotateCounterclockwise' },
-  { id: 'separator3', label: '', title: '' },
-  { id: 'zoomIn', label: 'Zoom In', title: 'Zoom In (+)', codicon: 'zoom-in', operation: 'zoomIn' },
-  { id: 'zoomOut', label: 'Zoom Out', title: 'Zoom Out (-)', codicon: 'zoom-out', operation: 'zoomOut' },
-  { id: 'centerVertical', label: 'Center V', title: 'Center Vertical', codicon: 'symbol-numeric', operation: 'centerVertical' },
-  { id: 'centerHorizontal', label: 'Center H', title: 'Center Horizontal', codicon: 'symbol-numeric', operation: 'centerHorizontal' },
-  { id: 'separator4', label: '', title: '' },
-  { id: 'polygonToRect', label: 'To Rect', title: 'Convert Polygon to Rectangle', codicon: 'symbol-square', operation: 'polygonToRect' },
-  { id: 'fitCanvasToContent', label: 'Fit Canvas', title: 'Fit Canvas to Content', codicon: 'screen-full', operation: 'fitCanvasToContent' },
-  { id: 'copyAsPng', label: 'Copy PNG', title: 'Copy as PNG to Clipboard', codicon: 'clippy', operation: 'copyAsPng' },
-  { id: 'toggleBackground', label: 'BG', title: 'Toggle Background Color', codicon: 'color-mode', operation: 'toggleBackground' }
+  { id: 'undo', i18nKey: 'toolbar.operations.undo', shortcut: 'Ctrl+Z', codicon: 'discard', operation: 'undo' },
+  { id: 'redo', i18nKey: 'toolbar.operations.redo', shortcut: 'Ctrl+Shift+Z', codicon: 'redo', operation: 'redo' },
+  { id: 'reload', i18nKey: 'toolbar.operations.reload', codicon: 'refresh', operation: 'reload' },
+  { id: 'separator0', i18nKey: '' },
+  { id: 'delete', i18nKey: 'toolbar.operations.delete', codicon: 'trash', operation: 'delete' },
+  { id: 'duplicate', i18nKey: 'toolbar.operations.duplicate', shortcut: 'Ctrl+D', codicon: 'copy', operation: 'duplicate' },
+  { id: 'group', i18nKey: 'toolbar.operations.group', shortcut: 'Ctrl+G', codicon: 'group-by-ref-type', operation: 'group' },
+  { id: 'ungroup', i18nKey: 'toolbar.operations.ungroup', shortcut: 'Ctrl+U', codicon: 'ungroup-by-ref-type', operation: 'ungroup' },
+  { id: 'bringForward', i18nKey: 'toolbar.operations.bringForward', shortcut: 'PageUp', codicon: 'arrow-up', operation: 'bringForward' },
+  { id: 'sendBackward', i18nKey: 'toolbar.operations.sendBackward', shortcut: 'PageDown', codicon: 'arrow-down', operation: 'sendBackward' },
+  { id: 'separator1', i18nKey: '' },
+  { id: 'alignLeft', i18nKey: 'toolbar.operations.alignLeft', codicon: 'align-left', operation: 'alignLeft' },
+  { id: 'alignRight', i18nKey: 'toolbar.operations.alignRight', codicon: 'align-right', operation: 'alignRight' },
+  { id: 'alignTop', i18nKey: 'toolbar.operations.alignTop', codicon: 'align-top', operation: 'alignTop' },
+  { id: 'alignBottom', i18nKey: 'toolbar.operations.alignBottom', codicon: 'align-bottom', operation: 'alignBottom' },
+  { id: 'separator2', i18nKey: '' },
+  { id: 'rotateClockwise', i18nKey: 'toolbar.operations.rotateClockwise', shortcut: 'Ctrl+]', codicon: 'refresh', operation: 'rotateClockwise' },
+  { id: 'rotateCounterclockwise', i18nKey: 'toolbar.operations.rotateCounterclockwise', shortcut: 'Ctrl+[', codicon: 'refresh', operation: 'rotateCounterclockwise' },
+  { id: 'separator3', i18nKey: '' },
+  { id: 'zoomIn', i18nKey: 'toolbar.operations.zoomIn', shortcut: '+', codicon: 'zoom-in', operation: 'zoomIn' },
+  { id: 'zoomOut', i18nKey: 'toolbar.operations.zoomOut', shortcut: '-', codicon: 'zoom-out', operation: 'zoomOut' },
+  { id: 'centerVertical', i18nKey: 'toolbar.operations.centerVertical', codicon: 'symbol-numeric', operation: 'centerVertical' },
+  { id: 'centerHorizontal', i18nKey: 'toolbar.operations.centerHorizontal', codicon: 'symbol-numeric', operation: 'centerHorizontal' },
+  { id: 'separator4', i18nKey: '' },
+  { id: 'polygonToRect', i18nKey: 'toolbar.operations.polygonToRect', codicon: 'symbol-square', operation: 'polygonToRect' },
+  { id: 'fitCanvasToContent', i18nKey: 'toolbar.operations.fitCanvasToContent', codicon: 'screen-full', operation: 'fitCanvasToContent' },
+  { id: 'copyAsPng', i18nKey: 'toolbar.operations.copyAsPng', codicon: 'clippy', operation: 'copyAsPng' },
+  { id: 'toggleBackground', i18nKey: 'toolbar.operations.toggleBackground', codicon: 'color-mode', operation: 'toggleBackground' }
 ];
 
 export class SvgeditToolbar {
@@ -102,8 +102,7 @@ export class SvgeditToolbar {
       flex-wrap: wrap;
     `;
 
-    // Draw mode buttons
-    const drawGroup = this.createButtonGroup('Draw');
+    const drawGroup = this.createButtonGroup(t('toolbar.groups.draw'));
     drawModeButtons.forEach(btn => {
       const button = this.createToolButton(btn, true);
       drawGroup.appendChild(button);
@@ -115,7 +114,7 @@ export class SvgeditToolbar {
     toolbar.appendChild(this.createSeparator());
 
     // Operation buttons
-    const opGroup = this.createButtonGroup('Operations');
+    const opGroup = this.createButtonGroup(t('toolbar.groups.operations'));
     operationButtons.forEach(btn => {
       if (btn.id.startsWith('separator')) {
         opGroup.appendChild(this.createSeparator());
@@ -148,16 +147,17 @@ export class SvgeditToolbar {
   private createToolButton(btn: ToolbarButton, isMode: boolean): HTMLElement {
     const button = document.createElement('button');
     button.className = 'graphing-toolbutton';
-    button.title = btn.title;
+    const label = t(btn.i18nKey, btn.shortcut ? { shortcut: btn.shortcut } : undefined);
+    button.title = label;
     button.dataset['id'] = btn.id;
-    button.setAttribute('aria-label', btn.label);
+    button.setAttribute('aria-label', label);
 
     // Use SVG icon if available, otherwise fallback to text
     const iconSvg = getIcon(btn.id);
     if (iconSvg) {
       button.innerHTML = iconSvg;
     } else {
-      button.textContent = btn.label;
+      button.textContent = label;
     }
 
     button.style.cssText = `
