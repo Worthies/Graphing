@@ -1,6 +1,6 @@
 # Graphing
 
-[![marketplace](https://badgen.net/vs-marketplace/v/henoc.graphing)](https://marketplace.visualstudio.com/items?itemName=henoc.graphing)
+[![Open VSX Registry](https://img.shields.io/open-vsx/v/cloorc/graphing?label=Open%20VSX)](https://open-vsx.org/extension/cloorc/graphing)
 ![license](https://badgen.net/badge/license/MIT/green)
 
 ![sample](images/capture.png)
