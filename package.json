@@ -323,6 +323,7 @@
   },
   "dependencies": {
     "@svgedit/svgcanvas": "^7.4.1",
+    "i18next": "23.16.8",
     "diff": "^3.5.0",
     "fast-deep-equal": "^2.0.1",
     "fast-json-stable-stringify": "^2.0.0",
