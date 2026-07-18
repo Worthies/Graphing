@@ -1,10 +1,11 @@
 # CHANGELOG
 
-## Unreleased
-
-- Localize the SVG editor webview UI (toolbar, style panel, error notifications). Follows VS Code's display language; English and Simplified Chinese included.
+- 2.10.0
+  - Localize the SVG editor webview UI (toolbar, style panel, error notifications). Follows VS Code's display language; English and Simplified Chinese included
+  - Faster custom tooltips on toolbar buttons (replace slow native title tooltips)
 
 - 2.9.0
+  - Correct only the changed portions without auto formatting
   - Correct only the changed portions without auto formatting
 - 2.8.0
   - Support script
