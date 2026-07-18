@@ -3,6 +3,8 @@
  * Provides comprehensive attribute editing using VS Code theming.
  */
 
+import { t } from './i18n';
+
 export interface StyleState {
   fill: string;
   fillOpacity: number;
@@ -254,23 +256,23 @@ export class SvgeditStylePanel {
     const tagName = attrs.tagName;
 
     // Canvas section (always visible)
-    this.panel.appendChild(this.createSection('Canvas', [
-      this.createCanvasNumberControl('Width', this.canvasWidth, 1, 10000, 1),
-      this.createCanvasNumberControl('Height', this.canvasHeight, 1, 10000, 1)
+    this.panel.appendChild(this.createSection(t('stylePanel.sections.canvas'), [
+      this.createCanvasNumberControl(t('stylePanel.fields.width'), 'width', this.canvasWidth, 1, 10000, 1),
+      this.createCanvasNumberControl(t('stylePanel.fields.height'), 'height', this.canvasHeight, 1, 10000, 1)
     ]));
 
     // ViewBox section (always visible)
-    this.panel.appendChild(this.createSection('ViewBox', [
-      this.createViewBoxNumberControl('Min X', 'viewBoxX', this.viewBoxX, -99999, 99999, 1),
-      this.createViewBoxNumberControl('Min Y', 'viewBoxY', this.viewBoxY, -99999, 99999, 1),
-      this.createViewBoxNumberControl('Width', 'viewBoxW', this.viewBoxW, 1, 99999, 1),
-      this.createViewBoxNumberControl('Height', 'viewBoxH', this.viewBoxH, 1, 99999, 1)
+    this.panel.appendChild(this.createSection(t('stylePanel.sections.viewBox'), [
+      this.createViewBoxNumberControl(t('stylePanel.fields.minX'), 'viewBoxX', this.viewBoxX, -99999, 99999, 1),
+      this.createViewBoxNumberControl(t('stylePanel.fields.minY'), 'viewBoxY', this.viewBoxY, -99999, 99999, 1),
+      this.createViewBoxNumberControl(t('stylePanel.fields.width'), 'viewBoxW', this.viewBoxW, 1, 99999, 1),
+      this.createViewBoxNumberControl(t('stylePanel.fields.height'), 'viewBoxH', this.viewBoxH, 1, 99999, 1)
     ]));
 
     // Element Info section
-    this.panel.appendChild(this.createSection('Element', [
-      this.createTextControl('ID', 'id', attrs.id),
-      this.createReadOnlyControl('Tag', 'tagName', tagName)
+    this.panel.appendChild(this.createSection(t('stylePanel.sections.element'), [
+      this.createTextControl(t('stylePanel.fields.id'), 'id', attrs.id),
+      this.createReadOnlyControl(t('stylePanel.fields.tag'), 'tagName', tagName)
     ]));
 
     // Position/Size section (only for elements with geometry)
@@ -280,73 +282,73 @@ export class SvgeditStylePanel {
       switch (tagName) {
         case 'rect':
           controls.push(
-            this.createNumberControl('X', 'x', attrs.x || 0, -9999, 9999, 1),
-            this.createNumberControl('Y', 'y', attrs.y || 0, -9999, 9999, 1),
-            this.createNumberControl('Width', 'width', attrs.width || 0, 0, 9999, 1),
-            this.createNumberControl('Height', 'height', attrs.height || 0, 0, 9999, 1),
-            this.createNumberControl('RX', 'rx', attrs.rx || 0, 0, 9999, 1),
-            this.createNumberControl('RY', 'ry', attrs.ry || 0, 0, 9999, 1)
+            this.createNumberControl(t('stylePanel.fields.x'), 'x', attrs.x || 0, -9999, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.y'), 'y', attrs.y || 0, -9999, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.width'), 'width', attrs.width || 0, 0, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.height'), 'height', attrs.height || 0, 0, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.rx'), 'rx', attrs.rx || 0, 0, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.ry'), 'ry', attrs.ry || 0, 0, 9999, 1)
           );
           break;
 
         case 'circle':
           controls.push(
-            this.createNumberControl('CX', 'cx', attrs.cx || 0, -9999, 9999, 1),
-            this.createNumberControl('CY', 'cy', attrs.cy || 0, -9999, 9999, 1),
-            this.createNumberControl('R', 'r', attrs.r || 0, 0, 9999, 1)
+            this.createNumberControl(t('stylePanel.fields.cx'), 'cx', attrs.cx || 0, -9999, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.cy'), 'cy', attrs.cy || 0, -9999, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.r'), 'r', attrs.r || 0, 0, 9999, 1)
           );
           break;
 
         case 'ellipse':
           controls.push(
-            this.createNumberControl('CX', 'cx', attrs.cx || 0, -9999, 9999, 1),
-            this.createNumberControl('CY', 'cy', attrs.cy || 0, -9999, 9999, 1),
-            this.createNumberControl('RX', 'rx', attrs.rx || 0, 0, 9999, 1),
-            this.createNumberControl('RY', 'ry', attrs.ry || 0, 0, 9999, 1)
+            this.createNumberControl(t('stylePanel.fields.cx'), 'cx', attrs.cx || 0, -9999, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.cy'), 'cy', attrs.cy || 0, -9999, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.rx'), 'rx', attrs.rx || 0, 0, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.ry'), 'ry', attrs.ry || 0, 0, 9999, 1)
           );
           break;
 
         case 'line':
           controls.push(
-            this.createNumberControl('X1', 'x1', attrs.x1 || 0, -9999, 9999, 1),
-            this.createNumberControl('Y1', 'y1', attrs.y1 || 0, -9999, 9999, 1),
-            this.createNumberControl('X2', 'x2', attrs.x2 || 0, -9999, 9999, 1),
-            this.createNumberControl('Y2', 'y2', attrs.y2 || 0, -9999, 9999, 1)
+            this.createNumberControl(t('stylePanel.fields.x1'), 'x1', attrs.x1 || 0, -9999, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.y1'), 'y1', attrs.y1 || 0, -9999, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.x2'), 'x2', attrs.x2 || 0, -9999, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.y2'), 'y2', attrs.y2 || 0, -9999, 9999, 1)
           );
           break;
 
         case 'polyline':
         case 'polygon':
           controls.push(
-            this.createTextAreaControl('Points', 'points', attrs.points || '')
+            this.createTextAreaControl(t('stylePanel.fields.points'), 'points', attrs.points || '')
           );
           break;
 
         case 'path':
           controls.push(
-            this.createTextAreaControl('Path', 'd', attrs.d || '')
+            this.createTextAreaControl(t('stylePanel.fields.path'), 'd', attrs.d || '')
           );
           break;
 
         case 'text':
           controls.push(
-            this.createNumberControl('X', 'x', attrs.x || 0, -9999, 9999, 1),
-            this.createNumberControl('Y', 'y', attrs.y || 0, -9999, 9999, 1)
+            this.createNumberControl(t('stylePanel.fields.x'), 'x', attrs.x || 0, -9999, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.y'), 'y', attrs.y || 0, -9999, 9999, 1)
           );
           break;
 
         case 'image':
           controls.push(
-            this.createNumberControl('X', 'x', attrs.x || 0, -9999, 9999, 1),
-            this.createNumberControl('Y', 'y', attrs.y || 0, -9999, 9999, 1),
-            this.createNumberControl('Width', 'width', attrs.width || 0, 0, 9999, 1),
-            this.createNumberControl('Height', 'height', attrs.height || 0, 0, 9999, 1)
+            this.createNumberControl(t('stylePanel.fields.x'), 'x', attrs.x || 0, -9999, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.y'), 'y', attrs.y || 0, -9999, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.width'), 'width', attrs.width || 0, 0, 9999, 1),
+            this.createNumberControl(t('stylePanel.fields.height'), 'height', attrs.height || 0, 0, 9999, 1)
           );
           break;
       }
 
       if (controls.length > 0) {
-        this.panel.appendChild(this.createSection('Position & Size', controls));
+        this.panel.appendChild(this.createSection(t('stylePanel.sections.positionSize'), controls));
       }
     }
 
@@ -357,8 +359,8 @@ export class SvgeditStylePanel {
             const el = elems[0] as SVGElement;
             const initial = el.innerHTML;
             const callback = this.onTextContentChange;
-            this.panel.appendChild(this.createSection('Content', [
-                this.createTextContentControl('Text', initial, (newText) => {
+            this.panel.appendChild(this.createSection(t('stylePanel.sections.content'), [
+                this.createTextContentControl(t('stylePanel.fields.text'), initial, (newText) => {
                     callback(el, newText);
                 })
             ]));
@@ -366,32 +368,32 @@ export class SvgeditStylePanel {
     }
 
     // Style section
-    this.panel.appendChild(this.createSection('Style', [
-      this.createColorControl('Fill', 'fill', attrs.fill),
-      this.createNumberControl('Fill Opacity', 'fillOpacity', attrs.fillOpacity, 0, 1, 0.1),
-      this.createColorControl('Stroke', 'stroke', attrs.stroke),
-      this.createNumberControl('Stroke Width', 'strokeWidth', attrs.strokeWidth, 0, 100, 0.5),
-      this.createNumberControl('Stroke Opacity', 'strokeOpacity', attrs.strokeOpacity, 0, 1, 0.1)
+    this.panel.appendChild(this.createSection(t('stylePanel.sections.style'), [
+      this.createColorControl(t('stylePanel.fields.fill'), 'fill', attrs.fill),
+      this.createNumberControl(t('stylePanel.fields.fillOpacity'), 'fillOpacity', attrs.fillOpacity, 0, 1, 0.1),
+      this.createColorControl(t('stylePanel.fields.stroke'), 'stroke', attrs.stroke),
+      this.createNumberControl(t('stylePanel.fields.strokeWidth'), 'strokeWidth', attrs.strokeWidth, 0, 100, 0.5),
+      this.createNumberControl(t('stylePanel.fields.strokeOpacity'), 'strokeOpacity', attrs.strokeOpacity, 0, 1, 0.1)
     ]));
 
     // Font section (only for text elements)
     if (tagName === 'text') {
-      this.panel.appendChild(this.createSection('Font', [
-        this.createTextControl('Family', 'fontFamily', attrs.fontFamily),
-        this.createNumberControl('Size', 'fontSize', attrs.fontSize, 1, 200, 1),
-        this.createSelectControl('Weight', 'fontWeight', attrs.fontWeight, ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900']),
-        this.createSelectControl('Style', 'fontStyle', attrs.fontStyle, ['normal', 'italic', 'oblique'])
+      this.panel.appendChild(this.createSection(t('stylePanel.sections.font'), [
+        this.createTextControl(t('stylePanel.fields.family'), 'fontFamily', attrs.fontFamily),
+        this.createNumberControl(t('stylePanel.fields.size'), 'fontSize', attrs.fontSize, 1, 200, 1),
+        this.createSelectControl(t('stylePanel.fields.weight'), 'fontWeight', attrs.fontWeight, ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900']),
+        this.createSelectControl(t('stylePanel.fields.fontStyle'), 'fontStyle', attrs.fontStyle, ['normal', 'italic', 'oblique'])
       ]));
     }
 
     // Transform section
-    this.panel.appendChild(this.createSection('Transform', [
-      this.createTextControl('Transform', 'transform', attrs.transform)
+    this.panel.appendChild(this.createSection(t('stylePanel.sections.transform'), [
+      this.createTextControl(t('stylePanel.fields.transform'), 'transform', attrs.transform)
     ]));
 
     // Opacity section
-    this.panel.appendChild(this.createSection('Opacity', [
-      this.createNumberControl('Opacity', 'opacity', attrs.opacity, 0, 1, 0.1)
+    this.panel.appendChild(this.createSection(t('stylePanel.sections.opacity'), [
+      this.createNumberControl(t('stylePanel.fields.opacity'), 'opacity', attrs.opacity, 0, 1, 0.1)
     ]));
   }
 
@@ -470,7 +472,7 @@ export class SvgeditStylePanel {
     return group;
   }
 
-  private createCanvasNumberControl(label: string, value: number, min: number, max: number, step: number): HTMLElement {
+  private createCanvasNumberControl(label: string, dimension: 'width' | 'height', value: number, min: number, max: number, step: number): HTMLElement {
     const group = document.createElement('div');
     group.style.cssText = 'display: flex; flex-direction: column; gap: 2px; min-width: 60px;';
 
@@ -497,7 +499,7 @@ export class SvgeditStylePanel {
     `;
     input.addEventListener('change', () => {
       const newValue = parseFloat(input.value);
-      if (label === 'Width') {
+      if (dimension === 'width') {
         this.canvasWidth = newValue;
       } else {
         this.canvasHeight = newValue;
@@ -737,7 +739,7 @@ export class SvgeditStylePanel {
     const textarea = document.createElement('textarea');
     textarea.value = initialText;
     textarea.rows = 3;
-    textarea.placeholder = '(no text)';
+    textarea.placeholder = t('stylePanel.noText');
     textarea.style.cssText = `
       width: 100%;
       border: 1px solid var(--vscode-input-border, #3c3c3c);
