@@ -3,7 +3,7 @@
 [![Open VSX Registry](https://img.shields.io/open-vsx/v/cloorc/graphing?label=Open%20VSX)](https://open-vsx.org/extension/cloorc/graphing)
 ![license](https://badgen.net/badge/license/MIT/green)
 
-![sample](images/capture.png)
+![sample](images/capture.jpg)
 
 A powerful visual & literal SVG editor for VS Code, powered by SVG Edit.
 
