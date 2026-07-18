@@ -14,20 +14,24 @@ import { registerExtensions } from './svgeditExtensions';
 import { logger, withSyncErrorHandling } from './logger';
 import { debounce, requestIdleCallback } from './performance';
 import { polygonToRect as convertPolygonToRect } from './polygonToRect';
+import { initI18n, t } from './i18n';
 
 declare function acquireVsCodeApi(): { postMessage(args: any): void };
 
 const vscode = acquireVsCodeApi();
 
+// Initialize i18n before any UI is built; missing/empty tag falls back to English.
+initI18n(document.getElementById('graphing-locale')?.textContent ?? undefined);
+
 // Surface uncaught errors as visible error messages instead of silent failure
 window.addEventListener('error', (e: ErrorEvent) => {
-  const detail = e.error?.message || e.message || 'Unknown webview error';
-  vscode.postMessage({ command: 'error', data: 'SVG editor error: ' + detail });
+  const detail = e.error?.message || e.message || t('errors.unknownWebviewError');
+  vscode.postMessage({ command: 'error', data: t('errors.webviewError', { detail }) });
 });
 window.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
   const r: any = e.reason;
-  const detail = (r && (r.message || r.toString())) || 'Unhandled promise rejection';
-  vscode.postMessage({ command: 'error', data: 'SVG editor error: ' + detail });
+  const detail = (r && (r.message || r.toString())) || t('errors.unhandledRejection');
+  vscode.postMessage({ command: 'error', data: t('errors.webviewError', { detail }) });
 });
 
 // State
@@ -909,7 +913,7 @@ window.addEventListener('message', (event) => {
           const diag = diagnoseSvgError(message.data);
           if (diag) {
             logger.error('SVG parse error from text editor', diag);
-            vscode.postMessage({ command: 'error', data: 'SVG parse error: ' + diag });
+            vscode.postMessage({ command: 'error', data: t('errors.svgParseError', { detail: diag }) });
             break;
           }
 
@@ -934,11 +938,11 @@ window.addEventListener('message', (event) => {
 
             const success = canvas.setSvgString(prepared);
             if (!success) {
-              const reason = diagnoseSvgError(prepared) || 'svgcanvas rejected the SVG';
+              const reason = diagnoseSvgError(prepared) || t('errors.svgcanvasRejected');
               logger.error('setSvgString failed', reason);
               vscode.postMessage({
                 command: 'error',
-                data: 'SVG could not be loaded: ' + reason
+                data: t('errors.svgLoadFailed', { reason })
               });
             }
 
@@ -955,7 +959,7 @@ window.addEventListener('message', (event) => {
         } catch (e) {
           const detail = e instanceof Error ? e.message : String(e);
           logger.error('Unexpected error handling modified SVG', e);
-          vscode.postMessage({ command: 'error', data: 'SVG render error: ' + detail });
+          vscode.postMessage({ command: 'error', data: t('errors.svgRenderError', { detail }) });
         } finally {
           isInternalChange = false;
         }
