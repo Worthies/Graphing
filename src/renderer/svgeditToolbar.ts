@@ -73,6 +73,8 @@ export class SvgeditToolbar {
   private onModeChange: (mode: DrawMode) => void;
   private onOperation: (op: Operation) => void;
   private buttons: Map<string, HTMLElement> = new Map();
+  private tooltip: HTMLElement | null = null;
+  private tooltipTimer: number | null = null;
 
   constructor(
     container: HTMLElement,
@@ -148,9 +150,9 @@ export class SvgeditToolbar {
     const button = document.createElement('button');
     button.className = 'graphing-toolbutton';
     const label = t(btn.i18nKey, btn.shortcut ? { shortcut: btn.shortcut } : undefined);
-    button.title = label;
     button.dataset['id'] = btn.id;
     button.setAttribute('aria-label', label);
+    this.attachTooltip(button, label);
 
     // Use SVG icon if available, otherwise fallback to text
     const iconSvg = getIcon(btn.id);
@@ -159,7 +161,6 @@ export class SvgeditToolbar {
     } else {
       button.textContent = label;
     }
-
     button.style.cssText = `
       width: 28px;
       height: 28px;
@@ -204,6 +205,61 @@ export class SvgeditToolbar {
     });
 
     return button;
+  }
+
+  private attachTooltip(button: HTMLElement, label: string): void {
+    button.addEventListener('mouseenter', () => {
+      this.tooltipTimer = window.setTimeout(() => {
+        this.showTooltip(button, label);
+      }, 300);
+    });
+    button.addEventListener('mouseleave', () => this.hideTooltip());
+    button.addEventListener('mousedown', () => this.hideTooltip());
+  }
+
+  private showTooltip(anchor: HTMLElement, text: string): void {
+    this.hideTooltip();
+    const tip = document.createElement('div');
+    tip.className = 'graphing-tooltip';
+    tip.textContent = text;
+    tip.style.cssText = `
+      position: fixed;
+      z-index: 10000;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      line-height: 1.4;
+      white-space: nowrap;
+      pointer-events: none;
+      background: var(--vscode-editorWidget-background, #252526);
+      color: var(--vscode-editorWidget-foreground, #cccccc);
+      border: 1px solid var(--vscode-editorWidget-border, #454545);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.36);
+    `;
+    document.body.appendChild(tip);
+    this.tooltip = tip;
+
+    const rect = anchor.getBoundingClientRect();
+    const tipRect = tip.getBoundingClientRect();
+    let top = rect.bottom + 6;
+    if (top + tipRect.height > window.innerHeight) {
+      top = rect.top - tipRect.height - 6;
+    }
+    let left = rect.left + rect.width / 2 - tipRect.width / 2;
+    left = Math.max(4, Math.min(left, window.innerWidth - tipRect.width - 4));
+    tip.style.top = `${top}px`;
+    tip.style.left = `${left}px`;
+  }
+
+  private hideTooltip(): void {
+    if (this.tooltipTimer !== null) {
+      window.clearTimeout(this.tooltipTimer);
+      this.tooltipTimer = null;
+    }
+    if (this.tooltip) {
+      this.tooltip.remove();
+      this.tooltip = null;
+    }
   }
 
   private setActiveStyle(button: HTMLElement): void {
