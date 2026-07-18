@@ -37,6 +37,23 @@ function iterate<T extends object, R>(obj: T, fn: (key: Extract<keyof T, string>
     return acc;
 }
 
+// Map VS Code display-language tags to webview locales bundled in the editor.
+// Mirrors negotiateLocale() in src/renderer/i18n (duplicated: the webview bundle
+// and the extension host cannot share a module).
+export function normalizeLocale(raw: string | undefined | null): string {
+    const LOCALE_MAP: { [key: string]: string } = {
+        "en": "en",
+        "zh-cn": "zh-CN",
+        "zh-hans": "zh-CN"
+    };
+    if (!raw) return "en";
+    const tag = raw.toLowerCase();
+    if (LOCALE_MAP[tag]) return LOCALE_MAP[tag];
+    const primary = tag.split("-")[0];
+    if (LOCALE_MAP[primary]) return LOCALE_MAP[primary];
+    return "en";
+}
+
 type PanelSet = { panel: vscode.WebviewPanel, editor: vscode.TextEditor, text: string, blockOnChangeText: boolean, blockSelectionSyncUntil: number, messageDisposable?: vscode.Disposable };
 
 // markdown-it plugin: render ```svg code fences and inline <svg> in markdown preview
@@ -192,7 +209,14 @@ export function activate(context: vscode.ExtensionContext) {
             )
             return panel;
         })();
-        panel.webview.html = replaceMagic(viewer, { bundleJs, css, svgeditCss, icons, uri: editor.document.uri.toString() });
+        panel.webview.html = replaceMagic(viewer, {
+            bundleJs,
+            css,
+            svgeditCss,
+            icons,
+            uri: editor.document.uri.toString(),
+            locale: normalizeLocale(vscode.env.language)
+        });
         panelSet = { panel, editor, text, blockOnChangeText: false, blockSelectionSyncUntil: 0 };
         setListener(panelSet);
         setWebviewActiveContext(oldPanel ? false : true);
